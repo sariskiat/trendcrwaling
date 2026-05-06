@@ -5,21 +5,31 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from typing import TypedDict
 
 from dotenv import load_dotenv
 from mcp import types
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 
+from scrapers import FacebookPost, InstagramPost, TikTokPost
 from scrapers import scrape_facebook, scrape_instagram, scrape_tiktok
 
 load_dotenv()
 
-__all__ = ["handle_analyze_competitor", "UnknownToolError"]
+__all__ = ["CompetitorAnalysisResult", "handle_analyze_competitor", "UnknownToolError"]
 
 _IG_SESSION_FILE: str = os.getenv("IG_SESSION_FILE", "ig_session.json")
 
 app: Server = Server("sukishi-trend-research")
+
+
+class CompetitorAnalysisResult(TypedDict, total=False):
+    """Scraped posts keyed by platform name."""
+
+    tiktok: list[TikTokPost]
+    instagram: list[InstagramPost]
+    facebook: list[FacebookPost]
 
 
 class UnknownToolError(Exception):
@@ -30,7 +40,7 @@ async def handle_analyze_competitor(
     name: str,
     platforms: list[str],
     limit: int = 20,
-) -> dict[str, list[dict[str, object]]]:
+) -> CompetitorAnalysisResult:
     """Scrape competitor posts across specified platforms.
 
     Args:
@@ -39,9 +49,9 @@ async def handle_analyze_competitor(
         limit: Max posts per platform.
 
     Returns:
-        Dict keyed by platform with list of post dicts.
+        CompetitorAnalysisResult keyed by platform with typed post lists.
     """
-    results: dict[str, list[dict[str, object]]] = {}
+    results: CompetitorAnalysisResult = {}
     if "tiktok" in platforms:
         results["tiktok"] = await scrape_tiktok(name, limit)
     if "instagram" in platforms:
@@ -107,7 +117,7 @@ async def call_tool(name: str, arguments: dict[str, object]) -> list[types.TextC
     platforms: list[str] = list(arguments["platforms"])  # type: ignore[arg-type]
     limit: int = int(arguments.get("limit", 20))  # type: ignore[arg-type]
 
-    result: dict[str, list[dict[str, object]]] = await handle_analyze_competitor(
+    result: CompetitorAnalysisResult = await handle_analyze_competitor(
         competitor_name, platforms, limit
     )
     return [types.TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
