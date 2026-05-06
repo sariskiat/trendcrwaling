@@ -1,6 +1,7 @@
 """Tests for the Facebook scraper."""
 from __future__ import annotations
 
+import os
 from unittest.mock import patch
 
 import pytest
@@ -10,8 +11,20 @@ from scrapers.facebook import FacebookPost, FacebookScraperError, scrape_page
 
 def test_scrape_page_returns_structured_posts() -> None:
     mock_posts: list[dict[str, object]] = [
-        {"text": "Today's special buffet!", "likes": 150, "time": "2026-05-01 12:00:00"},
-        {"text": "Weekend deal", "likes": 80, "time": "2026-04-30 10:00:00"},
+        {
+            "text": "Today's special buffet!",
+            "likes": 150,
+            "time": "2026-05-01 12:00:00",
+            "post_url": "https://www.facebook.com/mk.suki.official/posts/123",
+            "image": "https://example.com/img1.jpg",
+        },
+        {
+            "text": "Weekend deal",
+            "likes": 80,
+            "time": "2026-04-30 10:00:00",
+            "post_url": "https://www.facebook.com/mk.suki.official/posts/456",
+            "image": "https://example.com/img2.jpg",
+        },
     ]
 
     with patch("scrapers.facebook.get_posts", return_value=iter(mock_posts)):
@@ -21,6 +34,8 @@ def test_scrape_page_returns_structured_posts() -> None:
     assert result[0]["text"] == "Today's special buffet!"
     assert result[0]["likes"] == 150
     assert result[0]["time"] == "2026-05-01 12:00:00"
+    assert result[0]["post_url"] == "https://www.facebook.com/mk.suki.official/posts/123"
+    assert result[0]["image_url"] == "https://example.com/img1.jpg"
 
 
 def test_scrape_page_respects_limit() -> None:
@@ -42,6 +57,8 @@ def test_scrape_page_handles_missing_fields() -> None:
     assert result[0]["text"] == ""
     assert result[0]["likes"] == 0
     assert result[0]["time"] == ""
+    assert result[0]["post_url"] == ""
+    assert result[0]["image_url"] == ""
 
 
 def test_scrape_page_raises_on_invalid_limit() -> None:
@@ -53,3 +70,17 @@ def test_scrape_page_raises_scraper_error_on_failure() -> None:
     with patch("scrapers.facebook.get_posts", side_effect=RuntimeError("blocked")):
         with pytest.raises(FacebookScraperError, match="Failed to scrape Facebook page"):
             scrape_page("mk.suki.official", limit=5)
+
+
+def test_scrape_page_passes_credentials_when_env_set() -> None:
+    with patch.dict(os.environ, {"FB_EMAIL": "test@example.com", "FB_PASSWORD": "secret"}):
+        with patch("scrapers.facebook.get_posts", return_value=iter([])) as mock_get:
+            scrape_page("barbegon", limit=5)
+    mock_get.assert_called_once_with("barbegon", pages=3, credentials=("test@example.com", "secret"))
+
+
+def test_scrape_page_passes_no_credentials_when_env_missing() -> None:
+    with patch.dict(os.environ, {"FB_EMAIL": "", "FB_PASSWORD": ""}):
+        with patch("scrapers.facebook.get_posts", return_value=iter([])) as mock_get:
+            scrape_page("barbegon", limit=5)
+    mock_get.assert_called_once_with("barbegon", pages=3, credentials=None)

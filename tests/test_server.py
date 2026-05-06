@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
-import pytest
 
 from mcp_server.server import CompetitorAnalysisResult, handle_analyze_competitor
 from scrapers.facebook import FacebookPost
