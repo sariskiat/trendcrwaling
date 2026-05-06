@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from typing import TypedDict
 
-from facebook_scraper import get_posts
+from facebook_scraper import get_posts, parse_cookie_file, set_cookies
 
 __all__ = ["FacebookPost", "FacebookScraperError", "scrape_page"]
 
@@ -23,13 +23,10 @@ class FacebookScraperError(Exception):
     """Raised when Facebook scraping fails due to network or access errors."""
 
 
-def _credentials() -> tuple[str, str] | None:
-    """Return (email, password) from env vars FB_EMAIL/FB_PASSWORD, or None."""
-    email: str = os.getenv("FB_EMAIL", "")
-    password: str = os.getenv("FB_PASSWORD", "")
-    if email and password:
-        return (email, password)
-    return None
+def _cookie_file() -> str | None:
+    """Return path to cookies.txt file from FB_COOKIES_FILE env var, or None."""
+    path: str = os.getenv("FB_COOKIES_FILE", "")
+    return path if path else None
 
 
 def scrape_page(page: str, limit: int = 20) -> list[FacebookPost]:
@@ -48,10 +45,12 @@ def scrape_page(page: str, limit: int = 20) -> list[FacebookPost]:
     """
     if limit <= 0:
         raise ValueError(f"limit must be positive, got {limit}")
-    creds: tuple[str, str] | None = _credentials()
+    cookie_path: str | None = _cookie_file()
+    if cookie_path is not None:
+        set_cookies(parse_cookie_file(cookie_path))
     results: list[FacebookPost] = []
     try:
-        for post in get_posts(page, pages=3, credentials=creds):
+        for post in get_posts(page, pages=3):
             results.append(FacebookPost(
                 text=post.get("text") or "",
                 likes=post.get("likes") or 0,

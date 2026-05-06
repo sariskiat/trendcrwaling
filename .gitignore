@@ -13,3 +13,4 @@ wheels/
 ig_session.json
 .env
 .pytest_cache/
+fb_cookies.txt

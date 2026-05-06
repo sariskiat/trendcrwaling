@@ -72,15 +72,22 @@ def test_scrape_page_raises_scraper_error_on_failure() -> None:
             scrape_page("mk.suki.official", limit=5)
 
 
-def test_scrape_page_passes_credentials_when_env_set() -> None:
-    with patch.dict(os.environ, {"FB_EMAIL": "test@example.com", "FB_PASSWORD": "secret"}):
-        with patch("scrapers.facebook.get_posts", return_value=iter([])) as mock_get:
-            scrape_page("barbegon", limit=5)
-    mock_get.assert_called_once_with("barbegon", pages=3, credentials=("test@example.com", "secret"))
+def test_scrape_page_uses_cookie_file_when_env_set() -> None:
+    fake_cookiejar: object = object()
+    with patch.dict(os.environ, {"FB_COOKIES_FILE": "fb_cookies.txt"}):
+        with patch("scrapers.facebook.parse_cookie_file", return_value=fake_cookiejar) as mock_parse:
+            with patch("scrapers.facebook.set_cookies") as mock_set:
+                with patch("scrapers.facebook.get_posts", return_value=iter([])) as mock_get:
+                    scrape_page("barbegon", limit=5)
+    mock_parse.assert_called_once_with("fb_cookies.txt")
+    mock_set.assert_called_once_with(fake_cookiejar)
+    mock_get.assert_called_once_with("barbegon", pages=3)
 
 
-def test_scrape_page_passes_no_credentials_when_env_missing() -> None:
-    with patch.dict(os.environ, {"FB_EMAIL": "", "FB_PASSWORD": ""}):
-        with patch("scrapers.facebook.get_posts", return_value=iter([])) as mock_get:
-            scrape_page("barbegon", limit=5)
-    mock_get.assert_called_once_with("barbegon", pages=3, credentials=None)
+def test_scrape_page_skips_cookies_when_env_missing() -> None:
+    with patch.dict(os.environ, {}, clear=True):
+        with patch("scrapers.facebook.set_cookies") as mock_set:
+            with patch("scrapers.facebook.get_posts", return_value=iter([])) as mock_get:
+                scrape_page("barbegon", limit=5)
+    mock_set.assert_not_called()
+    mock_get.assert_called_once_with("barbegon", pages=3)
