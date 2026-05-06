@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "sukishi-trend-research": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "mcp_server.server"],
+      "cwd": "/Users/saris.kia.adm/Desktop/trendcrwaling"
+    }
+  }
+}
