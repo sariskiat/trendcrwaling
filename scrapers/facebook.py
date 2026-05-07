@@ -9,6 +9,9 @@ from playwright.async_api import async_playwright
 
 __all__ = ["FacebookPost", "FacebookScraperError", "scrape_page"]
 
+_POST_SELECTOR = "[data-ad-comet-preview='message']"
+_REAL_IMAGE_PATTERN = "scontent"
+
 
 class FacebookPost(TypedDict):
     """A single Facebook post returned by the scraper."""
@@ -56,7 +59,7 @@ async def scrape_page(page: str, limit: int = 20) -> list[FacebookPost]:
     """Return recent posts from a public Facebook page.
 
     Args:
-        page: Facebook page name as it appears in the URL.
+        page: Facebook page slug as it appears in the URL (e.g. 'mkrestaurants').
         limit: Max number of posts to return. Must be positive.
 
     Returns:
@@ -74,35 +77,68 @@ async def scrape_page(page: str, limit: int = 20) -> list[FacebookPost]:
     try:
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(headless=True)
-            context = await browser.new_context()
+            ctx = await browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                ),
+                viewport={"width": 1280, "height": 900},
+            )
             if cookie_path is not None:
-                await context.add_cookies(_load_cookies(cookie_path))  # type: ignore[arg-type]
-            pg = await context.new_page()
-            await pg.goto(f"https://www.facebook.com/{page}")
-            await pg.wait_for_selector("article", timeout=15000)
-            articles = await pg.query_selector_all("article")
-            results: list[FacebookPost] = []
-            for article in articles[:limit]:
-                text: str = (await article.inner_text()) or ""
-                link_el = await article.query_selector("a[href*='/posts/']")
-                post_url: str = (
-                    (await link_el.get_attribute("href")) if link_el is not None else ""
-                ) or ""
-                img_el = await article.query_selector("img")
-                image_url: str = (
-                    (await img_el.get_attribute("src")) if img_el is not None else ""
-                ) or ""
-                results.append(
-                    FacebookPost(
-                        text=text,
-                        likes=0,
-                        time="",
-                        post_url=post_url,
-                        image_url=image_url,
-                    )
-                )
+                await ctx.add_cookies(_load_cookies(cookie_path))  # type: ignore[arg-type]
+            pg = await ctx.new_page()
+            await pg.goto(
+                f"https://www.facebook.com/{page}",
+                wait_until="domcontentloaded",
+                timeout=30000,
+            )
+            await pg.wait_for_timeout(5000)
+            for scroll_y in [800, 1600, 2400]:
+                await pg.evaluate(f"window.scrollTo(0, {scroll_y})")
+                await pg.wait_for_timeout(1500)
+
+            raw: list[dict[str, str]] = await pg.evaluate(
+                f"""() => {{
+                    const results = [];
+                    const msgs = document.querySelectorAll("{_POST_SELECTOR}");
+                    msgs.forEach(msg => {{
+                        let container = msg;
+                        for (let i = 0; i < 8; i++) container = container.parentElement;
+
+                        const text = msg.innerText || "";
+
+                        const linkEl = container.querySelector("a[href*='/posts/']")
+                            || container.querySelector("a[href*='/videos/']")
+                            || container.querySelector("a[href*='story_fbid']");
+                        const post_url = linkEl ? linkEl.href : "";
+
+                        const imgs = Array.from(container.querySelectorAll("img[src]"));
+                        const realImg = imgs.find(i => i.src.includes("{_REAL_IMAGE_PATTERN}"));
+                        const image_url = realImg ? realImg.src : "";
+
+                        const abbrEl = container.querySelector("abbr");
+                        const time = abbrEl ? (abbrEl.title || abbrEl.innerText || "") : "";
+
+                        results.push({{ text, post_url, image_url, time }});
+                    }});
+                    return results;
+                }}"""
+            )
+
             await browser.close()
-            return results
+
+            return [
+                FacebookPost(
+                    text=entry.get("text", ""),
+                    likes=0,
+                    time=entry.get("time", ""),
+                    post_url=entry.get("post_url", ""),
+                    image_url=entry.get("image_url", ""),
+                )
+                for entry in raw[:limit]
+            ]
+
     except FacebookScraperError:
         raise
     except Exception as exc:
