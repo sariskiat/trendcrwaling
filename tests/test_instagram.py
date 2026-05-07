@@ -144,3 +144,19 @@ async def test_scrape_user_skips_cookies_when_env_missing() -> None:
             await scrape_user("mk.suki.official", limit=5)
 
     mock_context.add_cookies.assert_not_called()
+
+
+async def test_scrape_user_closes_browser_on_exception() -> None:
+    """browser.close must be called even when _extract_posts raises."""
+    mock_pw, mock_browser, _, _ = _make_pw_mocks()
+    mock_browser.close = AsyncMock()
+
+    with patch(
+        "scrapers.instagram._extract_posts",
+        new=AsyncMock(side_effect=RuntimeError("DOM exploded")),
+    ):
+        with _patch_pw(mock_pw):
+            with pytest.raises(InstagramScraperError):
+                await scrape_user("mk.suki.official", limit=5)
+
+    mock_browser.close.assert_called_once()

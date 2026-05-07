@@ -9,13 +9,19 @@ from typing import TypedDict
 from playwright._impl._api_structures import (
     SetCookieParam,  # not re-exported from playwright.async_api
 )
-from playwright.async_api import Browser, Page, Playwright, async_playwright
+from playwright.async_api import (
+    Browser,
+    BrowserContext,
+    Page,
+    Playwright,
+    async_playwright,
+)
 
 __all__ = ["InstagramPost", "InstagramScraperError", "scrape_user"]
 
-_COOKIE_ENV = "IG_COOKIES_FILE"
-_POST_LINK_SELECTOR = "a[href*='/p/']"
-_USER_AGENT = (
+_COOKIE_ENV: str = "IG_COOKIES_FILE"
+_POST_LINK_SELECTOR: str = "a[href*='/p/']"
+_USER_AGENT: str = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/124.0.0.0 Safari/537.36"
@@ -91,7 +97,7 @@ async def _setup_browser(
         Tuple of (browser, page) ready for content extraction.
     """
     browser: Browser = await pw.chromium.launch(headless=True)
-    ctx = await browser.new_context(
+    ctx: BrowserContext = await browser.new_context(
         user_agent=_USER_AGENT,
         viewport={"width": 1280, "height": 900},
     )
@@ -143,17 +149,20 @@ async def scrape_user(username: str, limit: int = 20) -> list[InstagramPost]:
     try:
         async with async_playwright() as pw:
             browser, pg = await _setup_browser(pw, cookie_path, username)
-            raw: list[dict[str, str]] = await _extract_posts(pg)
-            await browser.close()
-            return [
-                InstagramPost(
-                    url=entry.get("url", ""),
-                    caption=entry.get("caption", ""),
-                    likes=0,
-                    post_url=entry.get("post_url", ""),
-                )
-                for entry in raw[:limit]
-            ]
+            try:
+                raw: list[dict[str, str]] = await _extract_posts(pg)
+                posts: list[InstagramPost] = [
+                    InstagramPost(
+                        url=entry.get("url", ""),
+                        caption=entry.get("caption", ""),
+                        likes=0,
+                        post_url=entry.get("post_url", ""),
+                    )
+                    for entry in raw[:limit]
+                ]
+            finally:
+                await browser.close()
+            return posts
     except InstagramScraperError:
         raise
     except Exception as exc:

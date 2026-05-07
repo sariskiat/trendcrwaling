@@ -1,9 +1,9 @@
 # Project Status
 
-**Phase:** Implement
+**Phase:** Done
 **Feature:** Instagram scraper (Playwright)
 **PRD:** docs/prd-playwright-instagram-scraper.md
-**Updated:** 2026-05-07 (ISSUE-012 done)
+**Updated:** 2026-05-07
 
 ## Issues
 
@@ -21,14 +21,18 @@
 | ISSUE-010 | Add `black` and `pytest-cov` to dev dependencies | ✅ done |
 | ISSUE-011 | Replace instagrapi with Playwright in scrapers/instagram.py | ✅ done |
 | ISSUE-012 | Wire Playwright Instagram scraper into MCP server | ✅ done |
+| ISSUE-013 | Close browser on exception path in scrape_user | ✅ done |
+| ISSUE-014 | Add type annotations to module-level constants in scrapers/instagram.py | ✅ done |
+| ISSUE-015 | Add BrowserContext type annotation to ctx in _setup_browser | ✅ done |
 
 ## DAG
 
 | Issue | Type | Priority | Blocked by |
 |---|---|---|---|
-| ISSUE-011 | AFK | tracer-bullet | none |
-| ISSUE-012 | AFK | infra | ISSUE-011 |
+| ISSUE-013 | AFK | bug | none |
+| ISSUE-014 | AFK | bug | none |
+| ISSUE-015 | AFK | bug | none |
 
 ## Next Step
 
-All AFK issues complete. Move to Review phase — no more pending AFK issues remain.
+All QA issues resolved. Commit, merge PR, and close the feature branch.

@@ -34,7 +34,9 @@ async def test_analyze_competitor_tiktok_only() -> None:
 async def test_analyze_competitor_all_platforms() -> None:
     tiktok_posts: list[TikTokPost] = [TikTokPost(url="t1", desc="d", likes=10)]
     ig_posts: list[InstagramPost] = [
-        InstagramPost(url="i1", caption="c", likes=20, post_url="https://instagram.com/p/1/")
+        InstagramPost(
+            url="i1", caption="c", likes=20, post_url="https://instagram.com/p/1/"
+        )
     ]
     fb_posts: list[FacebookPost] = [
         FacebookPost(text="f1", likes=30, time="2026-05-01", post_url="", image_url="")
@@ -65,7 +67,9 @@ async def test_analyze_competitor_all_platforms() -> None:
 async def test_analyze_competitor_instagram_awaited_without_session_file() -> None:
     """scrape_instagram must be awaited with (name, limit) — no session_file arg."""
     ig_posts: list[InstagramPost] = [
-        InstagramPost(url="i1", caption="c", likes=0, post_url="https://instagram.com/p/1/")
+        InstagramPost(
+            url="i1", caption="c", likes=0, post_url="https://instagram.com/p/1/"
+        )
     ]
     mock_scrape: AsyncMock = AsyncMock(return_value=ig_posts)
     with patch("mcp_server.server.scrape_instagram", mock_scrape):
