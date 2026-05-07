@@ -4,6 +4,7 @@ Run with a dedicated throwaway account — never the real Sukishi account.
 Usage:
     IG_USER=user@example.com IG_PASS=yourpass uv run python setup_ig_session.py
 """
+
 from __future__ import annotations
 
 import os

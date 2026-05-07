@@ -1,11 +1,12 @@
 # mcp_server/server.py
 """MCP stdio server exposing analyze_competitor to Claude."""
+
 from __future__ import annotations
 
 import asyncio
 import json
 import os
-from typing import TypedDict
+from typing import TypedDict, cast
 
 from dotenv import load_dotenv
 from mcp import types
@@ -81,7 +82,10 @@ async def list_tools() -> list[types.Tool]:
                     },
                     "platforms": {
                         "type": "array",
-                        "items": {"type": "string", "enum": ["tiktok", "instagram", "facebook"]},
+                        "items": {
+                            "type": "string",
+                            "enum": ["tiktok", "instagram", "facebook"],
+                        },
                         "description": "Platforms to scrape",
                     },
                     "limit": {
@@ -114,13 +118,17 @@ async def call_tool(name: str, arguments: dict[str, object]) -> list[types.TextC
         raise UnknownToolError(f"Unknown tool: {name}")
 
     competitor_name: str = str(arguments["name"])
-    platforms: list[str] = list(arguments["platforms"])  # type: ignore[arg-type]
-    limit: int = int(arguments.get("limit", 20))  # type: ignore[arg-type]
+    platforms: list[str] = list(cast(list[str], arguments["platforms"]))
+    limit: int = int(cast(int | str, arguments.get("limit", 20)))
 
     result: CompetitorAnalysisResult = await handle_analyze_competitor(
         competitor_name, platforms, limit
     )
-    return [types.TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
+    return [
+        types.TextContent(
+            type="text", text=json.dumps(result, ensure_ascii=False, indent=2)
+        )
+    ]
 
 
 async def main() -> None:

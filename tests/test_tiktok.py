@@ -1,4 +1,5 @@
 """Tests for the TikTok scraper."""
+
 from __future__ import annotations
 
 from typing import AsyncGenerator

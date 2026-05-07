@@ -1,4 +1,5 @@
 """Public scraper interface — one function per platform."""
+
 from __future__ import annotations
 
 from scrapers.facebook import FacebookPost, scrape_page as scrape_facebook

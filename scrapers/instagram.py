@@ -1,4 +1,5 @@
 """Instagram scraper using Instagrapi. Requires a saved session file from a throwaway account."""
+
 from __future__ import annotations
 
 from typing import TypedDict
@@ -20,7 +21,9 @@ class InstagramScraperError(Exception):
     """Raised when Instagram scraping fails due to session or network errors."""
 
 
-def scrape_user(username: str, session_file: str, limit: int = 20) -> list[InstagramPost]:
+def scrape_user(
+    username: str, session_file: str, limit: int = 20
+) -> list[InstagramPost]:
     """Return recent posts for an Instagram username.
 
     Args:
@@ -51,4 +54,6 @@ def scrape_user(username: str, session_file: str, limit: int = 20) -> list[Insta
             for m in medias
         ]
     except Exception as exc:
-        raise InstagramScraperError(f"Failed to scrape Instagram user '{username}': {exc}") from exc
+        raise InstagramScraperError(
+            f"Failed to scrape Instagram user '{username}': {exc}"
+        ) from exc

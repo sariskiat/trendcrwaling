@@ -1,4 +1,5 @@
 """Tests for the Instagram scraper."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -56,5 +57,7 @@ def test_scrape_user_raises_scraper_error_on_api_failure(tmp_path: Any) -> None:
     mock_client.load_settings.side_effect = RuntimeError("session expired")
 
     with patch("scrapers.instagram.Client", return_value=mock_client):
-        with pytest.raises(InstagramScraperError, match="Failed to scrape Instagram user"):
+        with pytest.raises(
+            InstagramScraperError, match="Failed to scrape Instagram user"
+        ):
             scrape_user("barbegon", session_file, limit=5)

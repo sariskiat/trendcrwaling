@@ -1,4 +1,5 @@
 """TikTok scraper using TikTokPy (tiktokapipy). No API key required."""
+
 from __future__ import annotations
 
 from typing import TypedDict
@@ -41,13 +42,17 @@ async def scrape_user(username: str, limit: int = 20) -> list[TikTokPost]:
         async with TikTokAPI() as api:
             user = await api.user(username)
             async for video in user.videos:
-                results.append(TikTokPost(
-                    url=video.url,
-                    desc=video.desc,
-                    likes=video.stats.digg_count,
-                ))
+                results.append(
+                    TikTokPost(
+                        url=video.url,
+                        desc=video.desc,
+                        likes=video.stats.digg_count,
+                    )
+                )
                 if len(results) >= limit:
                     break
     except Exception as exc:
-        raise TikTokScraperError(f"Failed to scrape TikTok user '{username}': {exc}") from exc
+        raise TikTokScraperError(
+            f"Failed to scrape TikTok user '{username}': {exc}"
+        ) from exc
     return results

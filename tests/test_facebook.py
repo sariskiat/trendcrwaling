@@ -1,8 +1,9 @@
 """Tests for the Facebook scraper (Playwright-based)."""
+
 from __future__ import annotations
 
 import os
-from typing import Any
+from contextlib import AbstractContextManager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -34,7 +35,7 @@ def _make_pw_mocks(
     mock_page.goto = AsyncMock()
     mock_page.wait_for_timeout = AsyncMock()
 
-    def _evaluate_side_effect(js: Any) -> Any:
+    def _evaluate_side_effect(js: object) -> list[dict[str, str]] | None:
         if isinstance(js, str) and "scrollTo" in js:
             return None
         return posts
@@ -43,7 +44,7 @@ def _make_pw_mocks(
     return mock_pw, mock_browser, mock_context, mock_page
 
 
-def _patch_pw(mock_pw: MagicMock) -> Any:
+def _patch_pw(mock_pw: MagicMock) -> AbstractContextManager[MagicMock]:
     """Patch async_playwright to return mock_pw via its async context manager."""
     cm = MagicMock()
     cm.__aenter__ = AsyncMock(return_value=mock_pw)
@@ -112,7 +113,9 @@ async def test_scrape_page_raises_scraper_error_on_playwright_failure() -> None:
     mock_pw.chromium.launch = AsyncMock(side_effect=RuntimeError("browser crashed"))
 
     with _patch_pw(mock_pw):
-        with pytest.raises(FacebookScraperError, match="Failed to scrape Facebook page"):
+        with pytest.raises(
+            FacebookScraperError, match="Failed to scrape Facebook page"
+        ):
             await scrape_page("mkrestaurants", limit=5)
 
 
@@ -123,7 +126,9 @@ async def test_scrape_page_injects_cookies_when_env_set() -> None:
     ]
 
     with patch.dict(os.environ, {"FB_COOKIES_FILE": "fb_cookies.txt"}):
-        with patch("scrapers.facebook._load_cookies", return_value=fake_cookies) as mock_load:
+        with patch(
+            "scrapers.facebook._load_cookies", return_value=fake_cookies
+        ) as mock_load:
             with _patch_pw(mock_pw):
                 await scrape_page("mkrestaurants", limit=5)
 
