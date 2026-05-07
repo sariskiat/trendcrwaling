@@ -57,7 +57,7 @@ async def handle_analyze_competitor(
     if "instagram" in platforms:
         results["instagram"] = scrape_instagram(name, _IG_SESSION_FILE, limit)
     if "facebook" in platforms:
-        results["facebook"] = scrape_facebook(name, limit)
+        results["facebook"] = await scrape_facebook(name, limit)
     return results
 
 

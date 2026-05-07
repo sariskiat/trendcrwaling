@@ -1,58 +1,94 @@
-"""Tests for the Facebook scraper."""
+"""Tests for the Facebook scraper (Playwright-based)."""
 from __future__ import annotations
 
 import os
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from scrapers.facebook import FacebookPost, FacebookScraperError, scrape_page
 
 
-def test_scrape_page_returns_structured_posts() -> None:
-    mock_posts: list[dict[str, object]] = [
-        {
-            "text": "Today's special buffet!",
-            "likes": 150,
-            "time": "2026-05-01 12:00:00",
-            "post_url": "https://www.facebook.com/mk.suki.official/posts/123",
-            "image": "https://example.com/img1.jpg",
-        },
-        {
-            "text": "Weekend deal",
-            "likes": 80,
-            "time": "2026-04-30 10:00:00",
-            "post_url": "https://www.facebook.com/mk.suki.official/posts/456",
-            "image": "https://example.com/img2.jpg",
-        },
-    ]
+def _make_pw_mocks() -> tuple[MagicMock, AsyncMock, AsyncMock, AsyncMock]:
+    """Return (mock_pw, mock_browser, mock_context, mock_page) wired together."""
+    mock_pw = MagicMock()
+    mock_browser = AsyncMock()
+    mock_context = AsyncMock()
+    mock_page = AsyncMock()
+    mock_pw.chromium.launch = AsyncMock(return_value=mock_browser)
+    mock_browser.new_context = AsyncMock(return_value=mock_context)
+    mock_browser.close = AsyncMock()
+    mock_context.new_page = AsyncMock(return_value=mock_page)
+    mock_context.add_cookies = AsyncMock()
+    mock_page.goto = AsyncMock()
+    mock_page.wait_for_selector = AsyncMock()
+    return mock_pw, mock_browser, mock_context, mock_page
 
-    with patch("scrapers.facebook.get_posts", return_value=iter(mock_posts)):
-        result: list[FacebookPost] = scrape_page("mk.suki.official", limit=2)
 
-    assert len(result) == 2
+def _patch_pw(mock_pw: MagicMock):
+    """Patch async_playwright to return mock_pw via its async context manager."""
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=mock_pw)
+    cm.__aexit__ = AsyncMock(return_value=False)
+    return patch("scrapers.facebook.async_playwright", return_value=cm)
+
+
+async def test_scrape_page_returns_structured_posts() -> None:
+    mock_pw, _, _, mock_page = _make_pw_mocks()
+
+    mock_link = AsyncMock()
+    mock_link.get_attribute = AsyncMock(
+        return_value="https://www.facebook.com/mk.suki.official/posts/123"
+    )
+    mock_img = AsyncMock()
+    mock_img.get_attribute = AsyncMock(return_value="https://example.com/img.jpg")
+
+    async def _query_selector(sel: str) -> AsyncMock:
+        return mock_link if "posts" in sel else mock_img
+
+    mock_article = AsyncMock()
+    mock_article.inner_text = AsyncMock(return_value="Today's special buffet!")
+    mock_article.query_selector = AsyncMock(side_effect=_query_selector)
+    mock_page.query_selector_all = AsyncMock(return_value=[mock_article])
+
+    with _patch_pw(mock_pw):
+        result: list[FacebookPost] = await scrape_page("mk.suki.official", limit=1)
+
+    assert len(result) == 1
     assert result[0]["text"] == "Today's special buffet!"
-    assert result[0]["likes"] == 150
-    assert result[0]["time"] == "2026-05-01 12:00:00"
     assert result[0]["post_url"] == "https://www.facebook.com/mk.suki.official/posts/123"
-    assert result[0]["image_url"] == "https://example.com/img1.jpg"
+    assert result[0]["image_url"] == "https://example.com/img.jpg"
+    assert result[0]["likes"] == 0
+    assert result[0]["time"] == ""
 
 
-def test_scrape_page_respects_limit() -> None:
-    mock_posts: list[dict[str, object]] = [
-        {"text": f"Post {i}", "likes": i * 10, "time": "2026-05-01"}
-        for i in range(5)
-    ]
+async def test_scrape_page_respects_limit() -> None:
+    mock_pw, _, _, mock_page = _make_pw_mocks()
 
-    with patch("scrapers.facebook.get_posts", return_value=iter(mock_posts)):
-        result: list[FacebookPost] = scrape_page("mk.suki.official", limit=2)
+    articles: list[AsyncMock] = []
+    for _ in range(5):
+        a = AsyncMock()
+        a.inner_text = AsyncMock(return_value="text")
+        a.query_selector = AsyncMock(return_value=None)
+        articles.append(a)
+    mock_page.query_selector_all = AsyncMock(return_value=articles)
 
-    assert len(result) == 2
+    with _patch_pw(mock_pw):
+        result: list[FacebookPost] = await scrape_page("some_page", limit=3)
+
+    assert len(result) == 3
 
 
-def test_scrape_page_handles_missing_fields() -> None:
-    with patch("scrapers.facebook.get_posts", return_value=iter([{}])):
-        result: list[FacebookPost] = scrape_page("mk.suki.official", limit=1)
+async def test_scrape_page_handles_missing_fields() -> None:
+    mock_pw, _, _, mock_page = _make_pw_mocks()
+
+    mock_article = AsyncMock()
+    mock_article.inner_text = AsyncMock(return_value="")
+    mock_article.query_selector = AsyncMock(return_value=None)
+    mock_page.query_selector_all = AsyncMock(return_value=[mock_article])
+
+    with _patch_pw(mock_pw):
+        result: list[FacebookPost] = await scrape_page("some_page", limit=1)
 
     assert result[0]["text"] == ""
     assert result[0]["likes"] == 0
@@ -61,33 +97,43 @@ def test_scrape_page_handles_missing_fields() -> None:
     assert result[0]["image_url"] == ""
 
 
-def test_scrape_page_raises_on_invalid_limit() -> None:
+async def test_scrape_page_raises_on_invalid_limit() -> None:
     with pytest.raises(ValueError, match="limit must be positive"):
-        scrape_page("mk.suki.official", limit=0)
+        await scrape_page("some_page", limit=0)
 
 
-def test_scrape_page_raises_scraper_error_on_failure() -> None:
-    with patch("scrapers.facebook.get_posts", side_effect=RuntimeError("blocked")):
+async def test_scrape_page_raises_scraper_error_on_playwright_failure() -> None:
+    mock_pw = MagicMock()
+    mock_pw.chromium.launch = AsyncMock(side_effect=RuntimeError("browser crashed"))
+
+    with _patch_pw(mock_pw):
         with pytest.raises(FacebookScraperError, match="Failed to scrape Facebook page"):
-            scrape_page("mk.suki.official", limit=5)
+            await scrape_page("some_page", limit=5)
 
 
-def test_scrape_page_uses_cookie_file_when_env_set() -> None:
-    fake_cookiejar: object = object()
+async def test_scrape_page_injects_cookies_when_env_set() -> None:
+    mock_pw, _, mock_context, mock_page = _make_pw_mocks()
+    mock_page.query_selector_all = AsyncMock(return_value=[])
+
+    fake_cookies: list[dict[str, str]] = [
+        {"name": "c_user", "value": "123", "domain": ".facebook.com", "path": "/"},
+    ]
+
     with patch.dict(os.environ, {"FB_COOKIES_FILE": "fb_cookies.txt"}):
-        with patch("scrapers.facebook.parse_cookie_file", return_value=fake_cookiejar) as mock_parse:
-            with patch("scrapers.facebook.set_cookies") as mock_set:
-                with patch("scrapers.facebook.get_posts", return_value=iter([])) as mock_get:
-                    scrape_page("barbegon", limit=5)
-    mock_parse.assert_called_once_with("fb_cookies.txt")
-    mock_set.assert_called_once_with(fake_cookiejar)
-    mock_get.assert_called_once_with("barbegon", pages=3)
+        with patch("scrapers.facebook._load_cookies", return_value=fake_cookies) as mock_load:
+            with _patch_pw(mock_pw):
+                await scrape_page("some_page", limit=5)
+
+    mock_load.assert_called_once_with("fb_cookies.txt")
+    mock_context.add_cookies.assert_called_once_with(fake_cookies)
 
 
-def test_scrape_page_skips_cookies_when_env_missing() -> None:
+async def test_scrape_page_skips_cookies_when_env_missing() -> None:
+    mock_pw, _, mock_context, mock_page = _make_pw_mocks()
+    mock_page.query_selector_all = AsyncMock(return_value=[])
+
     with patch.dict(os.environ, {}, clear=True):
-        with patch("scrapers.facebook.set_cookies") as mock_set:
-            with patch("scrapers.facebook.get_posts", return_value=iter([])) as mock_get:
-                scrape_page("barbegon", limit=5)
-    mock_set.assert_not_called()
-    mock_get.assert_called_once_with("barbegon", pages=3)
+        with _patch_pw(mock_pw):
+            await scrape_page("some_page", limit=5)
+
+    mock_context.add_cookies.assert_not_called()
