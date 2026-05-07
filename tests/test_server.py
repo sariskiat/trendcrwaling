@@ -33,7 +33,9 @@ async def test_analyze_competitor_tiktok_only() -> None:
 
 async def test_analyze_competitor_all_platforms() -> None:
     tiktok_posts: list[TikTokPost] = [TikTokPost(url="t1", desc="d", likes=10)]
-    ig_posts: list[InstagramPost] = [InstagramPost(url="i1", caption="c", likes=20)]
+    ig_posts: list[InstagramPost] = [
+        InstagramPost(url="i1", caption="c", likes=20, post_url="https://instagram.com/p/1/")
+    ]
     fb_posts: list[FacebookPost] = [
         FacebookPost(text="f1", likes=30, time="2026-05-01", post_url="", image_url="")
     ]
@@ -44,7 +46,11 @@ async def test_analyze_competitor_all_platforms() -> None:
             new_callable=AsyncMock,
             return_value=tiktok_posts,
         ),
-        patch("mcp_server.server.scrape_instagram", return_value=ig_posts),
+        patch(
+            "mcp_server.server.scrape_instagram",
+            new_callable=AsyncMock,
+            return_value=ig_posts,
+        ),
         patch("mcp_server.server.scrape_facebook", return_value=fb_posts),
     ):
         result: CompetitorAnalysisResult = await handle_analyze_competitor(
@@ -54,6 +60,20 @@ async def test_analyze_competitor_all_platforms() -> None:
     assert "tiktok" in result
     assert "instagram" in result
     assert "facebook" in result
+
+
+async def test_analyze_competitor_instagram_awaited_without_session_file() -> None:
+    """scrape_instagram must be awaited with (name, limit) — no session_file arg."""
+    ig_posts: list[InstagramPost] = [
+        InstagramPost(url="i1", caption="c", likes=0, post_url="https://instagram.com/p/1/")
+    ]
+    mock_scrape: AsyncMock = AsyncMock(return_value=ig_posts)
+    with patch("mcp_server.server.scrape_instagram", mock_scrape):
+        result: CompetitorAnalysisResult = await handle_analyze_competitor(
+            name="test_user", platforms=["instagram"], limit=5
+        )
+    mock_scrape.assert_awaited_once_with("test_user", 5)
+    assert result["instagram"] == ig_posts
 
 
 async def test_analyze_competitor_skips_unselected_platforms() -> None:

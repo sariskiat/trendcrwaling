@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 from typing import TypedDict, cast
 
 from dotenv import load_dotenv
@@ -19,8 +18,6 @@ from scrapers import scrape_facebook, scrape_instagram, scrape_tiktok
 load_dotenv()
 
 __all__ = ["CompetitorAnalysisResult", "handle_analyze_competitor", "UnknownToolError"]
-
-_IG_SESSION_FILE: str = os.getenv("IG_SESSION_FILE", "ig_session.json")
 
 app: Server = Server("sukishi-trend-research")
 
@@ -56,7 +53,7 @@ async def handle_analyze_competitor(
     if "tiktok" in platforms:
         results["tiktok"] = await scrape_tiktok(name, limit)
     if "instagram" in platforms:
-        results["instagram"] = scrape_instagram(name, _IG_SESSION_FILE, limit)
+        results["instagram"] = await scrape_instagram(name, limit)
     if "facebook" in platforms:
         results["facebook"] = await scrape_facebook(name, limit)
     return results

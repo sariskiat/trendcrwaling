@@ -3,7 +3,7 @@
 **Phase:** Implement
 **Feature:** Instagram scraper (Playwright)
 **PRD:** docs/prd-playwright-instagram-scraper.md
-**Updated:** 2026-05-07
+**Updated:** 2026-05-07 (ISSUE-012 done)
 
 ## Issues
 
@@ -20,7 +20,7 @@
 | ISSUE-009 | `FacebookPost` missing required fields in test_server.py | ✅ done |
 | ISSUE-010 | Add `black` and `pytest-cov` to dev dependencies | ✅ done |
 | ISSUE-011 | Replace instagrapi with Playwright in scrapers/instagram.py | ✅ done |
-| ISSUE-012 | Wire Playwright Instagram scraper into MCP server | ⬜ pending |
+| ISSUE-012 | Wire Playwright Instagram scraper into MCP server | ✅ done |
 
 ## DAG
 
@@ -31,4 +31,4 @@
 
 ## Next Step
 
-Human reviews the DAG. Then: create a feature branch and run `./scripts/once.sh` to calibrate Ralph.
+All AFK issues complete. Move to Review phase — no more pending AFK issues remain.
