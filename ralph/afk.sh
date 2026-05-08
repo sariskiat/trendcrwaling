@@ -38,9 +38,9 @@ $(cat ralph/prompt.md)"
     --label "copilot" 2>&1)
 
   issue_number=$(echo "$gh_url" | grep -oE '[0-9]+$')
-  gh issue edit "$issue_number" --repo "$REPO" --add-assignee "copilot"
-
-  echo "  → #$issue_number assigned to Copilot"
+  gh issue edit "$issue_number" --repo "$REPO" --add-assignee "copilot" 2>/dev/null \
+    && echo "  → #$issue_number assigned to Copilot" \
+    || echo "  → #$issue_number created (Copilot agent not available — assign manually)"
   mv "$f" issues/done/
   ((created++))
 done
