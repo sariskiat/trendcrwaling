@@ -3,6 +3,25 @@
 > Chronological action log. Hooks and AI append to this file automatically.
 > Old sessions are consolidated by the daemon weekly.
 
+## Session: 2026-05-08
+
+| 15:05 | ISSUE-030 | mcp_server/image_analysis.py, mcp_server/server.py, tests/test_image_analysis.py, issues/done/ISSUE-030-fix-silent-empty-response.md | Raise ValueError for empty OpenAI response; update docstring and tests | ~80 
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| - | Grill-me session | — | Shared design concept for MCP rebuild | — |
+| - | Wrote PRD | docs/prd-rebuild-mcp-server.md | FastMCP rebuild PRD | ~800 |
+| - | Created issues 023-028 | issues/ISSUE-023..028-*.md | 6 vertical-slice issues (DAG) | ~3000 |
+| - | Created live smoke test | tests/smoke_tiktok.py | Verifies TikTok scrape output shape | ~400 |
+| - | Created MCP integration test | tests/integration_mcp.py | NDJSON stdio, init + tools/list | ~600 |
+| - | Created CI workflow | .github/workflows/ci.yml | lint + test + integration on push | ~300 |
+| - | Added ruff to dev deps | pyproject.toml | CI lint gate | ~10 |
+| - | ISSUE-023 | mcp_server/server.py, tests/test_server.py | Rewrote to FastMCP, tiktok_user_posts tracer bullet | ~1500 |
+| - | ISSUE-024 | mcp_server/server.py, tests/test_server.py | Added tiktok_trending + tiktok_hashtag_posts | ~800 |
+| - | ISSUE-025 | mcp_server/server.py, tests/test_server.py | Added instagram_user_posts tool | ~500 |
+| - | ISSUE-026 | mcp_server/server.py, tests/test_server.py | Added facebook_page_posts tool | ~500 |
+| - | ISSUE-027 | mcp_server/image_analysis.py, server.py, tests/test_image_analysis.py, pyproject.toml | Added analyze_image tool with OpenAI Vision | ~800 |
+| - | ISSUE-028 | README.md | Documented all 6 tools, env vars, planned tools | ~400 |
+
 ## Session: 2026-05-07 20:44
 
 | Time | Action | File(s) | Outcome | ~Tokens |
@@ -79,3 +98,18 @@
 | Time | Action | File(s) | Outcome | ~Tokens |
 |------|--------|---------|---------|--------|
 | — | ISSUE-022: try/finally browser cleanup | scrapers/facebook.py, tests/test_facebook.py | Wrapped _extract_posts in try/finally for browser.close(); added test_scrape_page_closes_browser_on_exception; 8/8 pass | ~150 |
+
+## Session: 2026-05-08 14:55
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+
+## Session: 2026-05-08 14:56
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+
+## Session: 2026-05-08 14:59
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
