@@ -377,6 +377,39 @@ async def test_tiktok_user_posts_tikapi_config_error_propagates() -> None:
             await tiktok_user_posts_tikapi("testuser", limit=20)
 
 
+# Tests for tiktok_user_posts_apify
+async def test_tiktok_user_posts_apify_success() -> None:
+    """tiktok_user_posts_apify returns JSON string with post data including source provenance."""
+    from mcp_server.server import tiktok_user_posts_apify
+    from scrapers.tiktok_apify import ApifyTikTokPost
+
+    mock_posts: list[ApifyTikTokPost] = [
+        ApifyTikTokPost(
+            url="https://tiktok.com/@testuser/video/123",
+            desc="Apify post",
+            likes=1000,
+            views=5000,
+            thumbnail_url="https://img.jpg",
+            author="testuser",
+            source="apify",
+        )
+    ]
+    with patch(
+        "mcp_server.server._scrape_apify_user",
+        new_callable=AsyncMock,
+        return_value=mock_posts,
+    ):
+        result = await tiktok_user_posts_apify("testuser", limit=20)
+
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert isinstance(parsed, list)
+    assert len(parsed) == 1
+    assert parsed[0]["author"] == "testuser"
+    assert parsed[0]["likes"] == 1000
+    assert parsed[0]["source"] == "apify"
+
+
 # Tests for instagram_user_posts
 async def test_instagram_user_posts_success() -> None:
     """instagram_user_posts returns JSON string with post data on success."""
@@ -640,7 +673,7 @@ def test_analysis_error_is_value_error() -> None:
 
 # Smoke test for tool registration
 def test_all_tools_registered() -> None:
-    """All 8 MCP tools are registered on the mcp object."""
+    """All 9 MCP tools are registered on the mcp object."""
     from mcp_server.server import mcp
 
     expected_tools: set[str] = {
@@ -649,6 +682,7 @@ def test_all_tools_registered() -> None:
         "tiktok_hashtag_posts",
         "tiktok_user_posts_api",
         "tiktok_user_posts_tikapi",
+        "tiktok_user_posts_apify",
         "instagram_user_posts",
         "facebook_page_posts",
         "analyze_image",
