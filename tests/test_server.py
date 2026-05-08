@@ -223,6 +223,90 @@ async def test_tiktok_hashtag_posts_missing_cookies() -> None:
             await tiktok_hashtag_posts(tag="trending", limit=20)
 
 
+# Tests for tiktok_user_posts_api
+async def test_tiktok_user_posts_api_success() -> None:
+    """tiktok_user_posts_api returns JSON string with post data including source provenance."""
+    from mcp_server.server import tiktok_user_posts_api
+    from scrapers.tiktok_api import TikTokApiPost
+
+    mock_posts: list[TikTokApiPost] = [
+        TikTokApiPost(
+            url="https://tiktok.com/@testuser/video/123",
+            desc="API post",
+            likes=1000,
+            views=5000,
+            thumbnail_url="https://img.jpg",
+            author="testuser",
+            source="tiktok-api",
+        )
+    ]
+    with patch(
+        "mcp_server.server._scrape_tiktok_api_user",
+        new_callable=AsyncMock,
+        return_value=mock_posts,
+    ):
+        result = await tiktok_user_posts_api("testuser", limit=20)
+
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert isinstance(parsed, list)
+    assert len(parsed) == 1
+    assert parsed[0]["author"] == "testuser"
+    assert parsed[0]["likes"] == 1000
+    assert parsed[0]["source"] == "tiktok-api"
+
+
+async def test_tiktok_user_posts_api_invalid_username() -> None:
+    """tiktok_user_posts_api raises ValidationError for invalid username."""
+    from mcp_server.server import tiktok_user_posts_api, ValidationError
+
+    with pytest.raises(ValidationError, match="Invalid username"):
+        await tiktok_user_posts_api("../../../etc/passwd", limit=20)
+
+
+async def test_tiktok_user_posts_api_invalid_limit_zero() -> None:
+    """tiktok_user_posts_api raises ValidationError for limit < 1."""
+    from mcp_server.server import tiktok_user_posts_api, ValidationError
+
+    with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+        await tiktok_user_posts_api("validuser", limit=0)
+
+
+async def test_tiktok_user_posts_api_invalid_limit_too_high() -> None:
+    """tiktok_user_posts_api raises ValidationError for limit > 100."""
+    from mcp_server.server import tiktok_user_posts_api, ValidationError
+
+    with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+        await tiktok_user_posts_api("validuser", limit=999)
+
+
+async def test_tiktok_user_posts_api_scraper_error_propagates() -> None:
+    """tiktok_user_posts_api propagates TikTokApiScraperError from scraper."""
+    from mcp_server.server import tiktok_user_posts_api
+    from scrapers.tiktok_api import TikTokApiScraperError
+
+    with patch(
+        "mcp_server.server._scrape_tiktok_api_user",
+        new_callable=AsyncMock,
+        side_effect=TikTokApiScraperError("API failed"),
+    ):
+        with pytest.raises(TikTokApiScraperError, match="API failed"):
+            await tiktok_user_posts_api("testuser", limit=20)
+
+
+async def test_tiktok_user_posts_api_config_error_propagates() -> None:
+    """tiktok_user_posts_api propagates ConfigurationError when TT_MS_TOKEN missing."""
+    from mcp_server.server import tiktok_user_posts_api, ConfigurationError
+
+    with patch(
+        "mcp_server.server._scrape_tiktok_api_user",
+        new_callable=AsyncMock,
+        side_effect=ConfigurationError("TT_MS_TOKEN not set"),
+    ):
+        with pytest.raises(ConfigurationError, match="TT_MS_TOKEN"):
+            await tiktok_user_posts_api("testuser", limit=20)
+
+
 # Tests for instagram_user_posts
 async def test_instagram_user_posts_success() -> None:
     """instagram_user_posts returns JSON string with post data on success."""
@@ -486,13 +570,14 @@ def test_analysis_error_is_value_error() -> None:
 
 # Smoke test for tool registration
 def test_all_tools_registered() -> None:
-    """All 6 MCP tools are registered on the mcp object."""
+    """All 7 MCP tools are registered on the mcp object."""
     from mcp_server.server import mcp
 
     expected_tools: set[str] = {
         "tiktok_user_posts",
         "tiktok_trending",
         "tiktok_hashtag_posts",
+        "tiktok_user_posts_api",
         "instagram_user_posts",
         "facebook_page_posts",
         "analyze_image",

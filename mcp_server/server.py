@@ -23,6 +23,7 @@ from mcp_server.image_analysis import analyze_image_with_vision
 from scrapers.tiktok import TikTokPost, scrape_user as _scrape_tiktok_user
 from scrapers.tiktok import scrape_trending as _scrape_tiktok_trending
 from scrapers.tiktok import scrape_hashtag as _scrape_tiktok_hashtag
+from scrapers.tiktok_api import TikTokApiPost, scrape_user as _scrape_tiktok_api_user
 from scrapers.instagram import InstagramPost, scrape_user as _scrape_instagram_user
 from scrapers.facebook import FacebookPost, scrape_page as _scrape_facebook_page
 
@@ -112,6 +113,19 @@ async def tiktok_hashtag_posts(tag: str, limit: int = 20) -> str:
     _require_env(TT_COOKIES_FILE, "a path containing your TikTok cookies.txt file.")
 
     posts: list[TikTokPost] = await _scrape_tiktok_hashtag(tag, limit)
+    return json.dumps(posts, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def tiktok_user_posts_api(username: str, limit: int = 20) -> str:
+    """Scrape TikTok posts for a user using TikTok-Api library.
+
+    Requires TT_MS_TOKEN environment variable to be set.
+    """
+    _validate_handle(username, "username")
+    _validate_limit(limit)
+
+    posts: list[TikTokApiPost] = await _scrape_tiktok_api_user(username, limit)
     return json.dumps(posts, ensure_ascii=False, indent=2)
 
 
