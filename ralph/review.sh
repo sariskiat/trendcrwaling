@@ -1,22 +1,28 @@
 #!/bin/bash
-# ralph/review.sh — review Copilot PRs
-# Usage: bash ralph/review.sh
-# Lists open Copilot PRs and requests review on each.
+# ralph/review.sh — review open PRs for current branch or all open PRs
+# Usage: bash ralph/review.sh [pr_number]
+#   No args: reviews all open PRs
+#   With arg: reviews that specific PR
 
 set -eo pipefail
 
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 echo "=== Ralph Review · repo: $REPO ==="
 
-# List PRs created by copilot
-prs=$(gh pr list --repo "$REPO" --author "copilot" --state open --json number,title,url -q '.[] | "#\(.number) \(.title) → \(.url)"')
+if [ -n "$1" ]; then
+  # Review a specific PR
+  prs=$(gh pr view "$1" --repo "$REPO" --json number,title,url -q '"#\(.number) \(.title) → \(.url)"')
+else
+  # Review all open PRs
+  prs=$(gh pr list --repo "$REPO" --state open --json number,title,url -q '.[] | "#\(.number) \(.title) → \(.url)"')
+fi
 
 if [ -z "$prs" ]; then
-  echo "No open Copilot PRs found."
+  echo "No open PRs found."
   exit 0
 fi
 
-echo "Open Copilot PRs:"
+echo "Open PRs:"
 echo "$prs"
 echo ""
 
@@ -28,4 +34,3 @@ while IFS= read -r line; do
   echo "...(truncated, run 'gh pr diff $pr_num' for full diff)"
   echo ""
 done <<< "$prs"
-echo "=== Review complete ==="
