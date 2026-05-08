@@ -13,6 +13,8 @@ __all__ = [
     "ApifyTikTokPost",
     "ApifyTikTokScraperError",
     "scrape_user",
+    "scrape_trending",
+    "scrape_hashtag",
 ]
 
 _API_TOKEN_ENV: str = "APIFY_TOKEN"
@@ -124,3 +126,44 @@ async def scrape_user(username: str, limit: int = 20) -> list[ApifyTikTokPost]:
         ) from exc
 
     return posts
+
+
+async def scrape_trending(limit: int = 20) -> list[ApifyTikTokPost]:
+    """Return trending TikTok posts using Apify Clockworks.
+
+    Args:
+        limit: Max number of posts to return. Must be positive.
+
+    Returns:
+        List of ApifyTikTokPost dicts with keys: url, desc, likes, views,
+        thumbnail_url, author, source.
+
+    Raises:
+        NotImplementedError: Apify Clockworks scraper does not support trending.
+    """
+    raise NotImplementedError(
+        "Apify Clockworks scraper does not support trending videos. "
+        "Use the TikTok-Api scraper (scrapers.tiktok_api) or the Playwright "
+        "scraper (scrapers.tiktok) for trending videos."
+    )
+
+
+async def scrape_hashtag(tag: str, limit: int = 20) -> list[ApifyTikTokPost]:
+    """Return TikTok posts for a given hashtag using Apify Clockworks.
+
+    Args:
+        tag: Hashtag to search for (without #).
+        limit: Max number of posts to return. Must be positive.
+
+    Returns:
+        List of ApifyTikTokPost dicts with keys: url, desc, likes, views,
+        thumbnail_url, author, source.
+
+    Raises:
+        NotImplementedError: Apify Clockworks scraper does not support hashtag.
+    """
+    raise NotImplementedError(
+        f"Apify Clockworks scraper does not support hashtag videos. "
+        f"Use the TikTok-Api scraper (scrapers.tiktok_api) or the Playwright "
+        f"scraper (scrapers.tiktok) for hashtag '{tag}' videos."
+    )

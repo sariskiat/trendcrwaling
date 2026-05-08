@@ -13,6 +13,8 @@ __all__ = [
     "TikApiPost",
     "TikApiScraperError",
     "scrape_user",
+    "scrape_trending",
+    "scrape_hashtag",
 ]
 
 _API_KEY_ENV: str = "TIKAPI_KEY"
@@ -123,3 +125,44 @@ async def scrape_user(username: str, limit: int = 20) -> list[TikApiPost]:
         ) from exc
 
     return posts
+
+
+async def scrape_trending(limit: int = 20) -> list[TikApiPost]:
+    """Return trending TikTok posts using TikAPI.io.
+
+    Args:
+        limit: Max number of posts to return. Must be positive.
+
+    Returns:
+        List of TikApiPost dicts with keys: url, desc, likes, views,
+        thumbnail_url, author, source.
+
+    Raises:
+        NotImplementedError: TikAPI.io does not provide a documented trending endpoint.
+    """
+    raise NotImplementedError(
+        "TikAPI.io does not provide a documented trending endpoint. "
+        "Use the TikTok-Api scraper (scrapers.tiktok_api) or the Playwright "
+        "scraper (scrapers.tiktok) for trending videos."
+    )
+
+
+async def scrape_hashtag(tag: str, limit: int = 20) -> list[TikApiPost]:
+    """Return TikTok posts for a given hashtag using TikAPI.io.
+
+    Args:
+        tag: Hashtag to search for (without #).
+        limit: Max number of posts to return. Must be positive.
+
+    Returns:
+        List of TikApiPost dicts with keys: url, desc, likes, views,
+        thumbnail_url, author, source.
+
+    Raises:
+        NotImplementedError: TikAPI.io does not provide a documented hashtag endpoint.
+    """
+    raise NotImplementedError(
+        f"TikAPI.io does not provide a documented hashtag endpoint. "
+        f"Use the TikTok-Api scraper (scrapers.tiktok_api) or the Playwright "
+        f"scraper (scrapers.tiktok) for hashtag '{tag}' videos."
+    )

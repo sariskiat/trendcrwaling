@@ -24,8 +24,14 @@ from scrapers.tiktok import TikTokPost, scrape_user as _scrape_tiktok_user
 from scrapers.tiktok import scrape_trending as _scrape_tiktok_trending
 from scrapers.tiktok import scrape_hashtag as _scrape_tiktok_hashtag
 from scrapers.tiktok_api import TikTokApiPost, scrape_user as _scrape_tiktok_api_user
+from scrapers.tiktok_api import scrape_trending as _scrape_tiktok_api_trending
+from scrapers.tiktok_api import scrape_hashtag as _scrape_tiktok_api_hashtag
 from scrapers.tiktok_tikapi import TikApiPost, scrape_user as _scrape_tikapi_user
+from scrapers.tiktok_tikapi import scrape_trending as _scrape_tikapi_trending
+from scrapers.tiktok_tikapi import scrape_hashtag as _scrape_tikapi_hashtag
 from scrapers.tiktok_apify import ApifyTikTokPost, scrape_user as _scrape_apify_user
+from scrapers.tiktok_apify import scrape_trending as _scrape_apify_trending
+from scrapers.tiktok_apify import scrape_hashtag as _scrape_apify_hashtag
 from scrapers.instagram import InstagramPost, scrape_user as _scrape_instagram_user
 from scrapers.facebook import FacebookPost, scrape_page as _scrape_facebook_page
 
@@ -154,6 +160,93 @@ async def tiktok_user_posts_apify(username: str, limit: int = 20) -> str:
     _validate_limit(limit)
 
     posts: list[ApifyTikTokPost] = await _scrape_apify_user(username, limit)
+    return json.dumps(posts, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def tiktok_trending_api(limit: int = 20) -> str:
+    """Scrape trending TikTok posts using TikTok-Api library.
+
+    Requires TT_MS_TOKEN environment variable to be set.
+    """
+    _validate_limit(limit)
+
+    posts: list[TikTokApiPost] = await _scrape_tiktok_api_trending(limit)
+    return json.dumps(posts, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def tiktok_trending_tikapi(limit: int = 20) -> str:
+    """Scrape trending TikTok posts using TikAPI.io managed API.
+
+    Requires TIKAPI_KEY environment variable to be set.
+
+    Note: This endpoint is not implemented as TikAPI.io does not provide
+    a documented trending endpoint. Raises NotImplementedError.
+    """
+    _validate_limit(limit)
+
+    posts: list[TikApiPost] = await _scrape_tikapi_trending(limit)
+    return json.dumps(posts, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def tiktok_trending_apify(limit: int = 20) -> str:
+    """Scrape trending TikTok posts using Apify Clockworks managed API.
+
+    Requires APIFY_TOKEN environment variable to be set.
+
+    Note: This endpoint is not implemented as Apify Clockworks does not provide
+    a trending actor. Raises NotImplementedError.
+    """
+    _validate_limit(limit)
+
+    posts: list[ApifyTikTokPost] = await _scrape_apify_trending(limit)
+    return json.dumps(posts, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def tiktok_hashtag_api(tag: str, limit: int = 20) -> str:
+    """Scrape TikTok posts for a hashtag using TikTok-Api library.
+
+    Requires TT_MS_TOKEN environment variable to be set.
+    """
+    _validate_handle(tag, "tag")
+    _validate_limit(limit)
+
+    posts: list[TikTokApiPost] = await _scrape_tiktok_api_hashtag(tag, limit)
+    return json.dumps(posts, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def tiktok_hashtag_tikapi(tag: str, limit: int = 20) -> str:
+    """Scrape TikTok posts for a hashtag using TikAPI.io managed API.
+
+    Requires TIKAPI_KEY environment variable to be set.
+
+    Note: This endpoint is not implemented as TikAPI.io does not provide
+    a documented hashtag endpoint. Raises NotImplementedError.
+    """
+    _validate_handle(tag, "tag")
+    _validate_limit(limit)
+
+    posts: list[TikApiPost] = await _scrape_tikapi_hashtag(tag, limit)
+    return json.dumps(posts, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def tiktok_hashtag_apify(tag: str, limit: int = 20) -> str:
+    """Scrape TikTok posts for a hashtag using Apify Clockworks managed API.
+
+    Requires APIFY_TOKEN environment variable to be set.
+
+    Note: This endpoint is not implemented as Apify Clockworks does not provide
+    a hashtag actor. Raises NotImplementedError.
+    """
+    _validate_handle(tag, "tag")
+    _validate_limit(limit)
+
+    posts: list[ApifyTikTokPost] = await _scrape_apify_hashtag(tag, limit)
     return json.dumps(posts, ensure_ascii=False, indent=2)
 
 

@@ -13,6 +13,8 @@ from scrapers.tiktok_apify import (
     ApifyTikTokPost,
     ApifyTikTokScraperError,
     scrape_user,
+    scrape_trending,
+    scrape_hashtag,
 )
 
 
@@ -125,3 +127,29 @@ async def test_scrape_user_wraps_http_errors() -> None:
         with patch("scrapers.tiktok_apify.httpx.AsyncClient", return_value=mock_client):
             with pytest.raises(ApifyTikTokScraperError, match="Failed to scrape"):
                 await scrape_user("testuser", limit=5)
+
+
+# ============== scrape_trending tests ==============
+
+
+async def test_scrape_trending_raises_not_implemented() -> None:
+    """scrape_trending raises NotImplementedError as Apify Clockworks scraper does not support trending."""
+    with patch.dict(os.environ, {"APIFY_TOKEN": "test-apify-token"}):
+        with pytest.raises(
+            NotImplementedError,
+            match="Apify Clockworks scraper does not support trending",
+        ):
+            await scrape_trending(limit=5)
+
+
+# ============== scrape_hashtag tests ==============
+
+
+async def test_scrape_hashtag_raises_not_implemented() -> None:
+    """scrape_hashtag raises NotImplementedError as Apify Clockworks scraper does not support hashtag."""
+    with patch.dict(os.environ, {"APIFY_TOKEN": "test-apify-token"}):
+        with pytest.raises(
+            NotImplementedError,
+            match="Apify Clockworks scraper does not support hashtag",
+        ):
+            await scrape_hashtag("dance", limit=5)

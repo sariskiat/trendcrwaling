@@ -13,6 +13,8 @@ from scrapers.tiktok_tikapi import (
     TikApiPost,
     TikApiScraperError,
     scrape_user,
+    scrape_trending,
+    scrape_hashtag,
 )
 
 
@@ -173,3 +175,29 @@ async def test_scrape_user_handles_missing_thumbnail() -> None:
             result: list[TikApiPost] = await scrape_user("testuser", limit=1)
 
     assert result[0]["thumbnail_url"] == ""
+
+
+# ============== scrape_trending tests ==============
+
+
+async def test_scrape_trending_raises_not_implemented() -> None:
+    """scrape_trending raises NotImplementedError as TikAPI.io does not have a documented trending endpoint."""
+    with patch.dict(os.environ, {"TIKAPI_KEY": "test-api-key"}):
+        with pytest.raises(
+            NotImplementedError,
+            match="TikAPI.io does not provide a documented trending endpoint",
+        ):
+            await scrape_trending(limit=5)
+
+
+# ============== scrape_hashtag tests ==============
+
+
+async def test_scrape_hashtag_raises_not_implemented() -> None:
+    """scrape_hashtag raises NotImplementedError as TikAPI.io does not have a documented hashtag endpoint."""
+    with patch.dict(os.environ, {"TIKAPI_KEY": "test-api-key"}):
+        with pytest.raises(
+            NotImplementedError,
+            match="TikAPI.io does not provide a documented hashtag endpoint",
+        ):
+            await scrape_hashtag("dance", limit=5)

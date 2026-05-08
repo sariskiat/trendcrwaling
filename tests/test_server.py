@@ -410,6 +410,198 @@ async def test_tiktok_user_posts_apify_success() -> None:
     assert parsed[0]["source"] == "apify"
 
 
+# Tests for tiktok_trending_api
+async def test_tiktok_trending_api_success() -> None:
+    """tiktok_trending_api returns JSON string with trending post data including source provenance."""
+    from mcp_server.server import tiktok_trending_api
+    from scrapers.tiktok_api import TikTokApiPost
+
+    mock_posts: list[TikTokApiPost] = [
+        TikTokApiPost(
+            url="https://tiktok.com/v/trending1",
+            desc="Trending post 1",
+            likes=50000,
+            views=250000,
+            thumbnail_url="https://img.jpg",
+            author="trendinguser1",
+            source="tiktok-api",
+        )
+    ]
+    with patch(
+        "mcp_server.server._scrape_tiktok_api_trending",
+        new_callable=AsyncMock,
+        return_value=mock_posts,
+    ):
+        result = await tiktok_trending_api(limit=20)
+
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert isinstance(parsed, list)
+    assert len(parsed) == 1
+    assert parsed[0]["author"] == "trendinguser1"
+    assert parsed[0]["source"] == "tiktok-api"
+
+
+async def test_tiktok_trending_api_invalid_limit_zero() -> None:
+    """tiktok_trending_api raises ValidationError for limit < 1."""
+    from mcp_server.server import tiktok_trending_api, ValidationError
+
+    with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+        await tiktok_trending_api(limit=0)
+
+
+async def test_tiktok_trending_api_invalid_limit_too_high() -> None:
+    """tiktok_trending_api raises ValidationError for limit > 100."""
+    from mcp_server.server import tiktok_trending_api, ValidationError
+
+    with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+        await tiktok_trending_api(limit=200)
+
+
+# Tests for tiktok_trending_tikapi
+async def test_tiktok_trending_tikapi_raises_not_implemented() -> None:
+    """tiktok_trending_tikapi raises NotImplementedError as TikAPI.io does not support trending."""
+    from mcp_server.server import tiktok_trending_tikapi
+
+    with pytest.raises(NotImplementedError, match="TikAPI.io does not provide"):
+        await tiktok_trending_tikapi(limit=5)
+
+
+async def test_tiktok_trending_tikapi_invalid_limit() -> None:
+    """tiktok_trending_tikapi raises ValidationError for invalid limit."""
+    from mcp_server.server import tiktok_trending_tikapi, ValidationError
+
+    with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+        await tiktok_trending_tikapi(limit=0)
+
+
+# Tests for tiktok_trending_apify
+async def test_tiktok_trending_apify_raises_not_implemented() -> None:
+    """tiktok_trending_apify raises NotImplementedError as Apify Clockworks does not support trending."""
+    from mcp_server.server import tiktok_trending_apify
+
+    with pytest.raises(
+        NotImplementedError, match="Apify Clockworks scraper does not support"
+    ):
+        await tiktok_trending_apify(limit=5)
+
+
+async def test_tiktok_trending_apify_invalid_limit() -> None:
+    """tiktok_trending_apify raises ValidationError for invalid limit."""
+    from mcp_server.server import tiktok_trending_apify, ValidationError
+
+    with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+        await tiktok_trending_apify(limit=0)
+
+
+# Tests for tiktok_hashtag_api
+async def test_tiktok_hashtag_api_success() -> None:
+    """tiktok_hashtag_api returns JSON string with hashtag post data including source provenance."""
+    from mcp_server.server import tiktok_hashtag_api
+    from scrapers.tiktok_api import TikTokApiPost
+
+    mock_posts: list[TikTokApiPost] = [
+        TikTokApiPost(
+            url="https://tiktok.com/v/hashtag1",
+            desc="Hashtag post 1",
+            likes=30000,
+            views=150000,
+            thumbnail_url="https://img.jpg",
+            author="hashtaguser1",
+            source="tiktok-api",
+        )
+    ]
+    with patch(
+        "mcp_server.server._scrape_tiktok_api_hashtag",
+        new_callable=AsyncMock,
+        return_value=mock_posts,
+    ):
+        result = await tiktok_hashtag_api("dance", limit=20)
+
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert isinstance(parsed, list)
+    assert len(parsed) == 1
+    assert parsed[0]["author"] == "hashtaguser1"
+    assert parsed[0]["source"] == "tiktok-api"
+
+
+async def test_tiktok_hashtag_api_invalid_tag() -> None:
+    """tiktok_hashtag_api raises ValidationError for invalid tag."""
+    from mcp_server.server import tiktok_hashtag_api, ValidationError
+
+    with pytest.raises(ValidationError, match="Invalid tag"):
+        await tiktok_hashtag_api("../../../etc/passwd", limit=20)
+
+
+async def test_tiktok_hashtag_api_invalid_limit_zero() -> None:
+    """tiktok_hashtag_api raises ValidationError for limit < 1."""
+    from mcp_server.server import tiktok_hashtag_api, ValidationError
+
+    with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+        await tiktok_hashtag_api("dance", limit=0)
+
+
+async def test_tiktok_hashtag_api_invalid_limit_too_high() -> None:
+    """tiktok_hashtag_api raises ValidationError for limit > 100."""
+    from mcp_server.server import tiktok_hashtag_api, ValidationError
+
+    with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+        await tiktok_hashtag_api("dance", limit=200)
+
+
+# Tests for tiktok_hashtag_tikapi
+async def test_tiktok_hashtag_tikapi_raises_not_implemented() -> None:
+    """tiktok_hashtag_tikapi raises NotImplementedError as TikAPI.io does not support hashtag."""
+    from mcp_server.server import tiktok_hashtag_tikapi
+
+    with pytest.raises(NotImplementedError, match="TikAPI.io does not provide"):
+        await tiktok_hashtag_tikapi("dance", limit=5)
+
+
+async def test_tiktok_hashtag_tikapi_invalid_tag() -> None:
+    """tiktok_hashtag_tikapi raises ValidationError for invalid tag."""
+    from mcp_server.server import tiktok_hashtag_tikapi, ValidationError
+
+    with pytest.raises(ValidationError, match="Invalid tag"):
+        await tiktok_hashtag_tikapi("../../../etc/passwd", limit=20)
+
+
+async def test_tiktok_hashtag_tikapi_invalid_limit() -> None:
+    """tiktok_hashtag_tikapi raises ValidationError for invalid limit."""
+    from mcp_server.server import tiktok_hashtag_tikapi, ValidationError
+
+    with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+        await tiktok_hashtag_tikapi("dance", limit=0)
+
+
+# Tests for tiktok_hashtag_apify
+async def test_tiktok_hashtag_apify_raises_not_implemented() -> None:
+    """tiktok_hashtag_apify raises NotImplementedError as Apify Clockworks does not support hashtag."""
+    from mcp_server.server import tiktok_hashtag_apify
+
+    with pytest.raises(
+        NotImplementedError, match="Apify Clockworks scraper does not support"
+    ):
+        await tiktok_hashtag_apify("dance", limit=5)
+
+
+async def test_tiktok_hashtag_apify_invalid_tag() -> None:
+    """tiktok_hashtag_apify raises ValidationError for invalid tag."""
+    from mcp_server.server import tiktok_hashtag_apify, ValidationError
+
+    with pytest.raises(ValidationError, match="Invalid tag"):
+        await tiktok_hashtag_apify("../../../etc/passwd", limit=20)
+
+
+async def test_tiktok_hashtag_apify_invalid_limit() -> None:
+    """tiktok_hashtag_apify raises ValidationError for invalid limit."""
+    from mcp_server.server import tiktok_hashtag_apify, ValidationError
+
+    with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+        await tiktok_hashtag_apify("dance", limit=0)
+
+
 # Tests for instagram_user_posts
 async def test_instagram_user_posts_success() -> None:
     """instagram_user_posts returns JSON string with post data on success."""
@@ -673,7 +865,7 @@ def test_analysis_error_is_value_error() -> None:
 
 # Smoke test for tool registration
 def test_all_tools_registered() -> None:
-    """All 9 MCP tools are registered on the mcp object."""
+    """All 21 MCP tools are registered on the mcp object."""
     from mcp_server.server import mcp
 
     expected_tools: set[str] = {
@@ -683,6 +875,12 @@ def test_all_tools_registered() -> None:
         "tiktok_user_posts_api",
         "tiktok_user_posts_tikapi",
         "tiktok_user_posts_apify",
+        "tiktok_trending_api",
+        "tiktok_trending_tikapi",
+        "tiktok_trending_apify",
+        "tiktok_hashtag_api",
+        "tiktok_hashtag_tikapi",
+        "tiktok_hashtag_apify",
         "instagram_user_posts",
         "facebook_page_posts",
         "analyze_image",
