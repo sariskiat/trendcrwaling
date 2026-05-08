@@ -1,63 +1,162 @@
-"""Tests for the Instagram scraper."""
+"""Tests for the Instagram scraper (Playwright-based)."""
 
 from __future__ import annotations
 
-from typing import Any
-from unittest.mock import MagicMock, patch
+import os
+from contextlib import AbstractContextManager
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from scrapers.instagram import InstagramPost, InstagramScraperError, scrape_user
 
 
-def test_scrape_user_returns_structured_posts(tmp_path: Any) -> None:
-    session_file: str = str(tmp_path / "session.json")
+def _make_pw_mocks(
+    evaluate_posts: list[dict[str, str]] | None = None,
+) -> tuple[MagicMock, AsyncMock, AsyncMock, AsyncMock]:
+    """Return (mock_pw, mock_browser, mock_context, mock_page) wired together.
 
-    mock_media: MagicMock = MagicMock()
-    mock_media.thumbnail_url = "https://instagram.com/p/abc/media.jpg"
-    mock_media.caption_text = "Barbegon special night"
-    mock_media.like_count = 320
+    Args:
+        evaluate_posts: What pg.evaluate() returns for the post-extraction call.
+            Scroll calls (window.scrollTo) return None automatically.
+    """
+    posts: list[dict[str, str]] = evaluate_posts or []
 
-    mock_client: MagicMock = MagicMock()
-    mock_client.user_id_from_username.return_value = "99999"
-    mock_client.user_medias.return_value = [mock_media]
+    mock_pw = MagicMock()
+    mock_browser = AsyncMock()
+    mock_context = AsyncMock()
+    mock_page = AsyncMock()
 
-    with patch("scrapers.instagram.Client", return_value=mock_client):
-        result: list[InstagramPost] = scrape_user("barbegon", session_file, limit=1)
+    mock_pw.chromium.launch = AsyncMock(return_value=mock_browser)
+    mock_browser.new_context = AsyncMock(return_value=mock_context)
+    mock_browser.close = AsyncMock()
+    mock_context.new_page = AsyncMock(return_value=mock_page)
+    mock_context.add_cookies = AsyncMock()
+    mock_page.goto = AsyncMock()
+    mock_page.wait_for_timeout = AsyncMock()
+
+    def _evaluate_side_effect(js: object) -> list[dict[str, str]] | None:
+        if isinstance(js, str) and "scrollTo" in js:
+            return None
+        return posts
+
+    mock_page.evaluate = AsyncMock(side_effect=_evaluate_side_effect)
+    return mock_pw, mock_browser, mock_context, mock_page
+
+
+def _patch_pw(mock_pw: MagicMock) -> AbstractContextManager[MagicMock]:
+    """Patch async_playwright to return mock_pw via its async context manager."""
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=mock_pw)
+    cm.__aexit__ = AsyncMock(return_value=False)
+    return patch("scrapers.instagram.async_playwright", return_value=cm)
+
+
+async def test_scrape_user_returns_structured_posts() -> None:
+    fake_posts: list[dict[str, str]] = [
+        {
+            "post_url": "https://www.instagram.com/p/ABC123/",
+            "url": "https://cdn.instagram.com/img/abc.jpg",
+            "caption": "Suki special night!",
+        }
+    ]
+    mock_pw, _, _, _ = _make_pw_mocks(evaluate_posts=fake_posts)
+
+    with _patch_pw(mock_pw):
+        result: list[InstagramPost] = await scrape_user("mk.suki.official", limit=1)
 
     assert len(result) == 1
-    assert result[0]["url"] == "https://instagram.com/p/abc/media.jpg"
-    assert result[0]["caption"] == "Barbegon special night"
-    assert result[0]["likes"] == 320
-    mock_client.load_settings.assert_called_once_with(session_file)
+    assert result[0]["post_url"] == "https://www.instagram.com/p/ABC123/"
+    assert result[0]["url"] == "https://cdn.instagram.com/img/abc.jpg"
+    assert result[0]["caption"] == "Suki special night!"
+    assert result[0]["likes"] == 0
 
 
-def test_scrape_user_passes_limit_to_api(tmp_path: Any) -> None:
-    session_file: str = str(tmp_path / "session.json")
+async def test_scrape_user_respects_limit() -> None:
+    fake_posts: list[dict[str, str]] = [
+        {"post_url": f"https://www.instagram.com/p/{i}/", "url": "", "caption": ""}
+        for i in range(5)
+    ]
+    mock_pw, _, _, _ = _make_pw_mocks(evaluate_posts=fake_posts)
 
-    mock_client: MagicMock = MagicMock()
-    mock_client.user_id_from_username.return_value = "99999"
-    mock_client.user_medias.return_value = []
+    with _patch_pw(mock_pw):
+        result: list[InstagramPost] = await scrape_user("mk.suki.official", limit=3)
 
-    with patch("scrapers.instagram.Client", return_value=mock_client):
-        scrape_user("barbegon", session_file, limit=7)
-
-    mock_client.user_medias.assert_called_once_with("99999", amount=7)
+    assert len(result) == 3
 
 
-def test_scrape_user_raises_on_invalid_limit(tmp_path: Any) -> None:
+async def test_scrape_user_handles_missing_fields() -> None:
+    fake_posts: list[dict[str, str]] = [{"post_url": "", "url": "", "caption": ""}]
+    mock_pw, _, _, _ = _make_pw_mocks(evaluate_posts=fake_posts)
+
+    with _patch_pw(mock_pw):
+        result: list[InstagramPost] = await scrape_user("mk.suki.official", limit=1)
+
+    assert result[0]["post_url"] == ""
+    assert result[0]["url"] == ""
+    assert result[0]["caption"] == ""
+    assert result[0]["likes"] == 0
+
+
+async def test_scrape_user_raises_on_invalid_limit() -> None:
     with pytest.raises(ValueError, match="limit must be positive"):
-        scrape_user("barbegon", str(tmp_path / "s.json"), limit=0)
+        await scrape_user("mk.suki.official", limit=0)
 
 
-def test_scrape_user_raises_scraper_error_on_api_failure(tmp_path: Any) -> None:
-    session_file: str = str(tmp_path / "session.json")
+async def test_scrape_user_raises_scraper_error_on_playwright_failure() -> None:
+    mock_pw = MagicMock()
+    mock_pw.chromium.launch = AsyncMock(side_effect=RuntimeError("browser crashed"))
 
-    mock_client: MagicMock = MagicMock()
-    mock_client.load_settings.side_effect = RuntimeError("session expired")
-
-    with patch("scrapers.instagram.Client", return_value=mock_client):
+    with _patch_pw(mock_pw):
         with pytest.raises(
             InstagramScraperError, match="Failed to scrape Instagram user"
         ):
-            scrape_user("barbegon", session_file, limit=5)
+            await scrape_user("mk.suki.official", limit=5)
+
+
+async def test_scrape_user_injects_cookies_when_env_set() -> None:
+    mock_pw, _, mock_context, _ = _make_pw_mocks()
+    fake_cookies: list[dict[str, str]] = [
+        {
+            "name": "sessionid",
+            "value": "abc123",
+            "domain": ".instagram.com",
+            "path": "/",
+        },
+    ]
+
+    with patch.dict(os.environ, {"IG_COOKIES_FILE": "ig_cookies.txt"}):
+        with patch(
+            "scrapers.instagram._load_cookies", return_value=fake_cookies
+        ) as mock_load:
+            with _patch_pw(mock_pw):
+                await scrape_user("mk.suki.official", limit=5)
+
+    mock_load.assert_called_once_with("ig_cookies.txt")
+    mock_context.add_cookies.assert_called_once_with(fake_cookies)
+
+
+async def test_scrape_user_skips_cookies_when_env_missing() -> None:
+    mock_pw, _, mock_context, _ = _make_pw_mocks()
+
+    with patch.dict(os.environ, {}, clear=True):
+        with _patch_pw(mock_pw):
+            await scrape_user("mk.suki.official", limit=5)
+
+    mock_context.add_cookies.assert_not_called()
+
+
+async def test_scrape_user_closes_browser_on_exception() -> None:
+    """browser.close must be called even when _extract_posts raises."""
+    mock_pw, mock_browser, _, _ = _make_pw_mocks()
+    mock_browser.close = AsyncMock()
+
+    with patch(
+        "scrapers.instagram._extract_posts",
+        new=AsyncMock(side_effect=RuntimeError("DOM exploded")),
+    ):
+        with _patch_pw(mock_pw):
+            with pytest.raises(InstagramScraperError):
+                await scrape_user("mk.suki.official", limit=5)
+
+    mock_browser.close.assert_called_once()
