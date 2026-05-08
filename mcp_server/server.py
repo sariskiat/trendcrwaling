@@ -88,7 +88,13 @@ mcp = FastMCP("sukishi-trend-research")
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_user_posts(username: str, limit: int = 20) -> str:
-    """Scrape recent TikTok posts for a given username.
+    """Scrape recent TikTok posts for a given username using Playwright.
+
+    Free, but requires browser cookies exported from TikTok.
+    Uses headless Chrome/Playwright to scrape posts.
+
+    Requires TT_COOKIES_FILE environment variable pointing to a
+    Netscape-format cookies.txt file exported from your browser.
 
     Returns structured post data (URLs, captions, likes, views, thumbnails).
     """
@@ -103,7 +109,14 @@ async def tiktok_user_posts(username: str, limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_trending(limit: int = 20) -> str:
-    """Scrape trending TikTok posts."""
+    """Scrape trending TikTok posts using Playwright.
+
+    Free, but requires browser cookies exported from TikTok.
+    Uses headless Chrome/Playwright to scrape trending posts.
+
+    Requires TT_COOKIES_FILE environment variable pointing to a
+    Netscape-format cookies.txt file exported from your browser.
+    """
     _validate_limit(limit)
 
     _require_env(TT_COOKIES_FILE, "a path containing your TikTok cookies.txt file.")
@@ -114,7 +127,14 @@ async def tiktok_trending(limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_hashtag_posts(tag: str, limit: int = 20) -> str:
-    """Scrape TikTok posts for a given hashtag."""
+    """Scrape TikTok posts for a given hashtag using Playwright.
+
+    Free, but requires browser cookies exported from TikTok.
+    Uses headless Chrome/Playwright to scrape hashtag posts.
+
+    Requires TT_COOKIES_FILE environment variable pointing to a
+    Netscape-format cookies.txt file exported from your browser.
+    """
     _validate_handle(tag, "tag")
     _validate_limit(limit)
 
@@ -126,7 +146,10 @@ async def tiktok_hashtag_posts(tag: str, limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_user_posts_api(username: str, limit: int = 20) -> str:
-    """Scrape TikTok posts for a user using TikTok-Api library.
+    """Scrape TikTok posts for a user using TikTok-Api library (free, unofficial).
+
+    Uses the davidteather/TikTokApi library. Free but may hit rate limits.
+    Set TIKTOK_SOURCE=api to use this source.
 
     Requires TT_MS_TOKEN environment variable to be set.
     """
@@ -139,9 +162,12 @@ async def tiktok_user_posts_api(username: str, limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_user_posts_tikapi(username: str, limit: int = 20) -> str:
-    """Scrape TikTok posts for a user using TikAPI.io managed API.
+    """Scrape TikTok posts for a user using TikAPI.io managed API (paid).
 
-    Requires TIKAPI_KEY environment variable to be set.
+    Reliable managed API service. Set TIKTOK_SOURCE=tikapi to use this source.
+
+    Requires TIKAPI_KEY environment variable (get one at tikapi.io).
+    Pricing: Pay-per-request based on TikAPI.io pricing tiers.
     """
     _validate_handle(username, "username")
     _validate_limit(limit)
@@ -152,9 +178,12 @@ async def tiktok_user_posts_tikapi(username: str, limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_user_posts_apify(username: str, limit: int = 20) -> str:
-    """Scrape TikTok posts for a user using Apify Clockworks managed API.
+    """Scrape TikTok posts for a user using Apify Clockworks managed API (pay-per-result).
 
-    Requires APIFY_TOKEN environment variable to be set.
+    98% success rate. Set TIKTOK_SOURCE=apify to use this source.
+
+    Requires APIFY_TOKEN environment variable (get one at apify.com).
+    Pricing: Pay-per-result based on Apify Clockworks actor pricing.
     """
     _validate_handle(username, "username")
     _validate_limit(limit)
@@ -165,7 +194,10 @@ async def tiktok_user_posts_apify(username: str, limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_trending_api(limit: int = 20) -> str:
-    """Scrape trending TikTok posts using TikTok-Api library.
+    """Scrape trending TikTok posts using TikTok-Api library (free, unofficial).
+
+    Uses the davidteather/TikTokApi library. Free but may hit rate limits.
+    Set TIKTOK_SOURCE=api to use this source.
 
     Requires TT_MS_TOKEN environment variable to be set.
     """
@@ -177,9 +209,12 @@ async def tiktok_trending_api(limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_trending_tikapi(limit: int = 20) -> str:
-    """Scrape trending TikTok posts using TikAPI.io managed API.
+    """Scrape trending TikTok posts using TikAPI.io managed API (paid).
 
-    Requires TIKAPI_KEY environment variable to be set.
+    Reliable managed API service. Set TIKTOK_SOURCE=tikapi to use this source.
+
+    Requires TIKAPI_KEY environment variable (get one at tikapi.io).
+    Pricing: Pay-per-request based on TikAPI.io pricing tiers.
 
     Note: This endpoint is not implemented as TikAPI.io does not provide
     a documented trending endpoint. Raises NotImplementedError.
@@ -192,9 +227,12 @@ async def tiktok_trending_tikapi(limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_trending_apify(limit: int = 20) -> str:
-    """Scrape trending TikTok posts using Apify Clockworks managed API.
+    """Scrape trending TikTok posts using Apify Clockworks managed API (pay-per-result).
 
-    Requires APIFY_TOKEN environment variable to be set.
+    98% success rate. Set TIKTOK_SOURCE=apify to use this source.
+
+    Requires APIFY_TOKEN environment variable (get one at apify.com).
+    Pricing: Pay-per-result based on Apify Clockworks actor pricing.
 
     Note: This endpoint is not implemented as Apify Clockworks does not provide
     a trending actor. Raises NotImplementedError.
@@ -207,7 +245,10 @@ async def tiktok_trending_apify(limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_hashtag_api(tag: str, limit: int = 20) -> str:
-    """Scrape TikTok posts for a hashtag using TikTok-Api library.
+    """Scrape TikTok posts for a hashtag using TikTok-Api library (free, unofficial).
+
+    Uses the davidteather/TikTokApi library. Free but may hit rate limits.
+    Set TIKTOK_SOURCE=api to use this source.
 
     Requires TT_MS_TOKEN environment variable to be set.
     """
@@ -220,9 +261,12 @@ async def tiktok_hashtag_api(tag: str, limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_hashtag_tikapi(tag: str, limit: int = 20) -> str:
-    """Scrape TikTok posts for a hashtag using TikAPI.io managed API.
+    """Scrape TikTok posts for a hashtag using TikAPI.io managed API (paid).
 
-    Requires TIKAPI_KEY environment variable to be set.
+    Reliable managed API service. Set TIKTOK_SOURCE=tikapi to use this source.
+
+    Requires TIKAPI_KEY environment variable (get one at tikapi.io).
+    Pricing: Pay-per-request based on TikAPI.io pricing tiers.
 
     Note: This endpoint is not implemented as TikAPI.io does not provide
     a documented hashtag endpoint. Raises NotImplementedError.
@@ -236,9 +280,12 @@ async def tiktok_hashtag_tikapi(tag: str, limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_hashtag_apify(tag: str, limit: int = 20) -> str:
-    """Scrape TikTok posts for a hashtag using Apify Clockworks managed API.
+    """Scrape TikTok posts for a hashtag using Apify Clockworks managed API (pay-per-result).
 
-    Requires APIFY_TOKEN environment variable to be set.
+    98% success rate. Set TIKTOK_SOURCE=apify to use this source.
+
+    Requires APIFY_TOKEN environment variable (get one at apify.com).
+    Pricing: Pay-per-result based on Apify Clockworks actor pricing.
 
     Note: This endpoint is not implemented as Apify Clockworks does not provide
     a hashtag actor. Raises NotImplementedError.
