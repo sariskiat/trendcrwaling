@@ -1,36 +1,39 @@
 #!/bin/bash
-# ralph/review.sh — review open PRs for current branch or all open PRs
-# Usage: bash ralph/review.sh [pr_number]
-#   No args: reviews all open PRs
-#   With arg: reviews that specific PR
+# ralph/review.sh — parallel Opus review (fresh session, two independent agents)
+# Usage: bash ralph/review.sh
+# Run in a NEW terminal session after ralph completes — never at the end of an AFK run.
+# NOTE: TILDI env vars must be set (run: source ~/Downloads/claude-start.sh first)
 
 set -eo pipefail
 
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-echo "=== Ralph Review · repo: $REPO ==="
-
-if [ -n "$1" ]; then
-  # Review a specific PR
-  prs=$(gh pr view "$1" --repo "$REPO" --json number,title,url -q '"#\(.number) \(.title) → \(.url)"')
-else
-  # Review all open PRs
-  prs=$(gh pr list --repo "$REPO" --state open --json number,title,url -q '.[] | "#\(.number) \(.title) → \(.url)"')
+# Verify TILDI environment is configured
+if [ -z "$ANTHROPIC_BASE_URL" ] || [ -z "$TILDI_VIRTUAL_KEY" ]; then
+  echo "Error: TILDI environment not configured."
+  echo "Run: source ~/Downloads/claude-start.sh"
+  exit 1
 fi
 
-if [ -z "$prs" ]; then
-  echo "No open PRs found."
-  exit 0
-fi
+diff=$(git diff main...HEAD 2>/dev/null || git diff HEAD~5...HEAD)
 
-echo "Open PRs:"
-echo "$prs"
-echo ""
+echo "=== Spawning two Opus reviewers in parallel ==="
 
-# Show diff for each PR
-while IFS= read -r line; do
-  pr_num=$(echo "$line" | grep -oE '#[0-9]+' | tr -d '#')
-  echo "--- PR #$pr_num ---"
-  gh pr diff "$pr_num" --repo "$REPO" | head -100
-  echo "...(truncated, run 'gh pr diff $pr_num' for full diff)"
-  echo ""
-done <<< "$prs"
+# Agent 1: review-protocol (tests, integration, structure)
+claude --agent ralph-reviewer \
+  --print \
+  "Review the following diff for review-protocol compliance — tests first, then integration, then structure:
+
+$diff" &
+
+PID1=$!
+
+# Agent 2: code-standards (types, naming, modules, docstrings)
+claude --agent ralph-reviewer \
+  --print \
+  "Review the following diff for code-standards compliance — types, error handling, naming, module design, enums, immutability, docstrings:
+
+$diff" &
+
+PID2=$!
+
+wait $PID1 $PID2
+echo "=== Review complete ==="

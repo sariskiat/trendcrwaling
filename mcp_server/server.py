@@ -1,264 +1,173 @@
 # mcp_server/server.py
-"""MCP stdio server exposing analyze_competitor to Claude."""
+"""MCP stdio server using FastMCP decorator pattern."""
 
 from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
-from typing import TypedDict, cast
+from typing import Final
 
 from dotenv import load_dotenv
-from mcp import types
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
+from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
-from scrapers import FacebookPost, InstagramPost, TikTokPost
-from scrapers import scrape_facebook, scrape_instagram, scrape_tiktok
-from scrapers.tiktok import scrape_user as _scrape_tiktok_user
+from mcp_server.exceptions import (
+    MCPServerError,
+    ValidationError,
+    ConfigurationError,
+    AnalysisError,
+)
+from mcp_server.image_analysis import analyze_image_with_vision
+from scrapers.tiktok import TikTokPost, scrape_user as _scrape_tiktok_user
 from scrapers.tiktok import scrape_trending as _scrape_tiktok_trending
 from scrapers.tiktok import scrape_hashtag as _scrape_tiktok_hashtag
+from scrapers.instagram import InstagramPost, scrape_user as _scrape_instagram_user
+from scrapers.facebook import FacebookPost, scrape_page as _scrape_facebook_page
 
-load_dotenv()
+__all__ = [
+    "mcp",
+    "MCPServerError",
+    "ValidationError",
+    "ConfigurationError",
+    "AnalysisError",
+]
 
-__all__ = ["CompetitorAnalysisResult", "handle_analyze_competitor", "UnknownToolError"]
+_HANDLE_RE: re.Pattern[str] = re.compile(r"^[A-Za-z0-9_.]{1,64}$")
 
-_HANDLE_RE = re.compile(r"^[A-Za-z0-9_.]{1,64}$")
-_VALID_PLATFORMS = {"tiktok", "instagram", "facebook"}
+TT_COOKIES_FILE: Final[str] = "TT_COOKIES_FILE"
+IG_COOKIES_FILE: Final[str] = "IG_COOKIES_FILE"
+FB_COOKIES_FILE: Final[str] = "FB_COOKIES_FILE"
+
+
+def _require_env(name: str, label: str) -> str:
+    """Return the env var `name` or raise ConfigurationError with actionable message."""
+    value = os.getenv(name, "")
+    if not value:
+        raise ConfigurationError(
+            f"{name} environment variable is not set. Export it to {label}"
+        )
+    return value
 
 
 def _validate_handle(value: str, field: str) -> str:
-    """Validate a social media handle/tag/page name.
+    """Validate a social media handle/username.
 
-    Raises ValueError if the value doesn't match the allowed pattern.
+    Raises ValidationError if the value doesn't match the allowed pattern.
     """
     if not _HANDLE_RE.match(value):
-        raise ValueError(
+        raise ValidationError(
             f"Invalid {field}: must be 1-64 alphanumeric/underscore/dot characters"
         )
     return value
 
 
 def _validate_limit(value: int) -> int:
-    """Validate limit is within acceptable range."""
+    """Validate limit is within acceptable range.
+
+    Raises:
+        ValidationError: If `value` is not between 1 and 100 inclusive.
+    """
     if not 1 <= value <= 100:
-        raise ValueError(f"limit must be between 1 and 100, got {value}")
+        raise ValidationError(f"limit must be between 1 and 100, got {value}")
     return value
 
 
-app: Server = Server("sukishi-trend-research")
+mcp = FastMCP("sukishi-trend-research")
 
 
-class CompetitorAnalysisResult(TypedDict, total=False):
-    """Scraped posts keyed by platform name."""
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def tiktok_user_posts(username: str, limit: int = 20) -> str:
+    """Scrape recent TikTok posts for a given username.
 
-    tiktok: list[TikTokPost]
-    instagram: list[InstagramPost]
-    facebook: list[FacebookPost]
-
-
-class UnknownToolError(Exception):
-    """Raised when an unrecognised MCP tool name is called."""
-
-
-async def handle_analyze_competitor(
-    name: str,
-    platforms: list[str],
-    limit: int = 20,
-) -> CompetitorAnalysisResult:
-    """Scrape competitor posts across specified platforms.
-
-    Args:
-        name: Competitor handle / page name (e.g. 'mk_suki').
-        platforms: Subset of ['tiktok', 'instagram', 'facebook'].
-        limit: Max posts per platform.
-
-    Returns:
-        CompetitorAnalysisResult keyed by platform with typed post lists.
+    Returns structured post data (URLs, captions, likes, views, thumbnails).
     """
-    _validate_handle(name, "name")
+    _validate_handle(username, "username")
     _validate_limit(limit)
-    platforms = [p for p in platforms if p in _VALID_PLATFORMS]
-    if not platforms:
-        raise ValueError(
-            f"No valid platforms provided. Must include one of: {sorted(_VALID_PLATFORMS)}"
-        )
-    results: CompetitorAnalysisResult = {}
-    if "tiktok" in platforms:
-        results["tiktok"] = await scrape_tiktok(name, limit)
-    if "instagram" in platforms:
-        results["instagram"] = await scrape_instagram(name, limit)
-    if "facebook" in platforms:
-        results["facebook"] = await scrape_facebook(name, limit)
-    return results
+
+    _require_env(TT_COOKIES_FILE, "a path containing your TikTok cookies.txt file.")
+
+    posts: list[TikTokPost] = await _scrape_tiktok_user(username, limit)
+    return json.dumps(posts, ensure_ascii=False, indent=2)
 
 
-@app.list_tools()
-async def list_tools() -> list[types.Tool]:
-    """Return all tools this MCP server exposes."""
-    return [
-        types.Tool(
-            name="analyze_competitor",
-            description=(
-                "Scrape recent posts from a competitor Thai buffet restaurant on TikTok, "
-                "Instagram, and/or Facebook. Returns structured post data (URLs, captions, "
-                "likes) for visual and content analysis."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "Competitor handle or page name (e.g. 'mk_suki')",
-                    },
-                    "platforms": {
-                        "type": "array",
-                        "items": {
-                            "type": "string",
-                            "enum": ["tiktok", "instagram", "facebook"],
-                        },
-                        "description": "Platforms to scrape",
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "default": 20,
-                        "description": "Max posts per platform",
-                    },
-                },
-                "required": ["name", "platforms"],
-            },
-        ),
-        types.Tool(
-            name="scrape_tiktok_user",
-            description="Scrape recent TikTok posts for a given username. Returns structured post data (URLs, captions, likes, views, thumbnails).",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "username": {
-                        "type": "string",
-                        "description": "TikTok handle without @",
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "default": 20,
-                        "description": "Max posts to return",
-                    },
-                },
-                "required": ["username"],
-            },
-        ),
-        types.Tool(
-            name="scrape_tiktok_trending",
-            description="Scrape trending TikTok posts from the Explore page. Returns structured post data.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "limit": {
-                        "type": "integer",
-                        "default": 20,
-                        "description": "Max posts to return",
-                    },
-                },
-            },
-        ),
-        types.Tool(
-            name="scrape_tiktok_hashtag",
-            description="Scrape TikTok posts for a specific hashtag. Returns structured post data.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "tag": {
-                        "type": "string",
-                        "description": "Hashtag without # (e.g. 'sukiyaki')",
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "default": 20,
-                        "description": "Max posts to return",
-                    },
-                },
-                "required": ["tag"],
-            },
-        ),
-    ]
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def tiktok_trending(limit: int = 20) -> str:
+    """Scrape trending TikTok posts."""
+    _validate_limit(limit)
+
+    _require_env(TT_COOKIES_FILE, "a path containing your TikTok cookies.txt file.")
+
+    posts: list[TikTokPost] = await _scrape_tiktok_trending(limit)
+    return json.dumps(posts, ensure_ascii=False, indent=2)
 
 
-@app.call_tool()
-async def call_tool(name: str, arguments: dict[str, object]) -> list[types.TextContent]:
-    """Dispatch a tool call to the correct handler.
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def tiktok_hashtag_posts(tag: str, limit: int = 20) -> str:
+    """Scrape TikTok posts for a given hashtag."""
+    _validate_handle(tag, "tag")
+    _validate_limit(limit)
+
+    _require_env(TT_COOKIES_FILE, "a path containing your TikTok cookies.txt file.")
+
+    posts: list[TikTokPost] = await _scrape_tiktok_hashtag(tag, limit)
+    return json.dumps(posts, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def instagram_user_posts(username: str, limit: int = 20) -> str:
+    """Scrape Instagram posts for a given user."""
+    _validate_handle(username, "username")
+    _validate_limit(limit)
+
+    _require_env(IG_COOKIES_FILE, "a path containing your Instagram cookies.txt file.")
+
+    posts: list[InstagramPost] = await _scrape_instagram_user(username, limit)
+    return json.dumps(posts, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def facebook_page_posts(page_name: str, limit: int = 20) -> str:
+    """Scrape Facebook posts from a public page."""
+    _validate_handle(page_name, "page_name")
+    _validate_limit(limit)
+
+    _require_env(FB_COOKIES_FILE, "a path containing your Facebook cookies.txt file.")
+
+    posts: list[FacebookPost] = await _scrape_facebook_page(page_name, limit)
+    return json.dumps(posts, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def analyze_image(
+    image_url: str, prompt: str = "Describe this image in detail"
+) -> str:
+    """Analyze an image using OpenAI Vision API.
 
     Args:
-        name: Tool name from the MCP request.
-        arguments: Tool arguments from the MCP request.
+        image_url: URL of the image to analyze.
+        prompt: What to analyze about the image.
 
     Returns:
-        List containing a single TextContent with JSON result.
+        Text description/analysis of the image.
 
     Raises:
-        UnknownToolError: If the tool name is not recognised.
+        ValidationError: If `image_url` does not start with http:// or https://.
+        ConfigurationError: If `OPENAI_API_KEY` environment variable is not set.
+        AnalysisError: If the OpenAI Vision API returns an empty response.
     """
-    if name not in {
-        "analyze_competitor",
-        "scrape_tiktok_user",
-        "scrape_tiktok_trending",
-        "scrape_tiktok_hashtag",
-    }:
-        raise UnknownToolError(f"Unknown tool: {name}")
+    if not image_url.startswith(("http://", "https://")):
+        raise ValidationError("image_url must start with http:// or https://")
 
-    if name == "analyze_competitor":
-        competitor_name: str = _validate_handle(str(arguments["name"]), "name")
-        platforms: list[str] = [
-            p for p in cast(list[str], arguments["platforms"]) if p in _VALID_PLATFORMS
-        ]
-        if not platforms:
-            raise ValueError("No valid platforms specified")
-        limit: int = _validate_limit(int(cast(int | str, arguments.get("limit", 20))))
-
-        result: CompetitorAnalysisResult = await handle_analyze_competitor(
-            competitor_name, platforms, limit
-        )
-        return [
-            types.TextContent(
-                type="text", text=json.dumps(result, ensure_ascii=False, indent=2)
-            )
-        ]
-
-    if name == "scrape_tiktok_user":
-        username: str = _validate_handle(str(arguments["username"]), "username")
-        limit: int = _validate_limit(int(cast(int | str, arguments.get("limit", 20))))
-        posts: list[TikTokPost] = await _scrape_tiktok_user(username, limit)
-        return [
-            types.TextContent(
-                type="text", text=json.dumps(posts, ensure_ascii=False, indent=2)
-            )
-        ]
-
-    if name == "scrape_tiktok_trending":
-        limit: int = _validate_limit(int(cast(int | str, arguments.get("limit", 20))))
-        posts: list[TikTokPost] = await _scrape_tiktok_trending(limit)
-        return [
-            types.TextContent(
-                type="text", text=json.dumps(posts, ensure_ascii=False, indent=2)
-            )
-        ]
-
-    if name == "scrape_tiktok_hashtag":
-        tag: str = _validate_handle(str(arguments["tag"]), "tag")
-        limit: int = _validate_limit(int(cast(int | str, arguments.get("limit", 20))))
-        posts: list[TikTokPost] = await _scrape_tiktok_hashtag(tag, limit)
-        return [
-            types.TextContent(
-                type="text", text=json.dumps(posts, ensure_ascii=False, indent=2)
-            )
-        ]
-
-    raise UnknownToolError(f"Unknown tool: {name}")
+    api_key = _require_env("OPENAI_API_KEY", "your OpenAI API key for Vision")
+    return await analyze_image_with_vision(image_url, prompt, api_key)
 
 
 async def main() -> None:
     """Run the MCP server over stdio."""
-    async with stdio_server() as (read_stream, write_stream):
-        await app.run(read_stream, write_stream, app.create_initialization_options())
+    load_dotenv()
+    await mcp.run_stdio_async()
 
 
 if __name__ == "__main__":
