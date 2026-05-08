@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
 
 from mcp_server.server import CompetitorAnalysisResult, handle_analyze_competitor
 from scrapers.facebook import FacebookPost
@@ -187,3 +188,47 @@ async def test_scrape_tiktok_hashtag_tool_dispatch() -> None:
 
     assert len(result) == 1  # type: ignore[arg-type]
     assert "Hashtag post" in result[0].text  # type: ignore[index]
+
+
+async def test_call_tool_rejects_invalid_username() -> None:
+    """scrape_tiktok_user rejects usernames with special characters."""
+    from mcp_server.server import call_tool
+
+    with pytest.raises(ValueError, match="Invalid username"):
+        await call_tool("scrape_tiktok_user", {"username": "../../../etc/passwd"})
+
+
+async def test_call_tool_rejects_invalid_tag() -> None:
+    """scrape_tiktok_hashtag rejects tags with special characters."""
+    from mcp_server.server import call_tool
+
+    with pytest.raises(ValueError, match="Invalid tag"):
+        await call_tool("scrape_tiktok_hashtag", {"tag": "'; DROP TABLE--", "limit": 5})
+
+
+async def test_call_tool_rejects_excessive_limit() -> None:
+    """Tools reject limit > 100."""
+    from mcp_server.server import call_tool
+
+    with pytest.raises(ValueError, match="limit must be between 1 and 100"):
+        await call_tool("scrape_tiktok_trending", {"limit": 999})
+
+
+async def test_call_tool_rejects_invalid_competitor_name() -> None:
+    """analyze_competitor rejects names with path traversal."""
+    from mcp_server.server import call_tool
+
+    with pytest.raises(ValueError, match="Invalid name"):
+        await call_tool(
+            "analyze_competitor", {"name": "../../etc", "platforms": ["tiktok"]}
+        )
+
+
+async def test_call_tool_rejects_invalid_platforms() -> None:
+    """analyze_competitor rejects when no valid platforms remain."""
+    from mcp_server.server import call_tool
+
+    with pytest.raises(ValueError, match="Invalid name|No valid platforms"):
+        await call_tool(
+            "analyze_competitor", {"name": "validname", "platforms": ["hackme"]}
+        )

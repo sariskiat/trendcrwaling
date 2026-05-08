@@ -131,11 +131,13 @@ async def _extract_posts(pg: Page, author: str = "") -> list[dict[str, str]]:
         const thumbnail_url = img ? (img.src || "") : "";
         const views_text = viewsElem ? (viewsElem.textContent || "0") : "0";
         const views = parseInt(views_text.replace(/[^0-9]/g, ""), 10) || 0;
-        results.push({{ url, desc, thumbnail_url, views: views.toString(), author: "{author}" }});
+        results.push({{ url, desc, thumbnail_url, views: views.toString() }});
     }});
     return results;
 }}"""
     raw: list[dict[str, str]] = await pg.evaluate(extract_js)
+    for entry in raw:
+        entry["author"] = author
     return raw
 
 

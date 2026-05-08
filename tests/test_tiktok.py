@@ -289,3 +289,27 @@ async def test_scrape_hashtag_raises_scraper_error_on_failure() -> None:
     with _patch_pw(mock_pw):
         with pytest.raises(TikTokScraperError, match="Failed to scrape TikTok hashtag"):
             await scrape_hashtag("sukiyaki", limit=5)
+
+
+async def test_scrape_user_no_js_injection_via_author() -> None:
+    """Username with JS injection chars must not appear in the evaluate JS string."""
+    evil_username = '"; alert(1); "'
+    fake_posts: list[dict[str, str]] = [
+        {
+            "url": "https://tiktok.com/@evil/video/1",
+            "desc": "test",
+            "thumbnail_url": "https://img.tt/1.jpg",
+            "views": "100",
+        }
+    ]
+    mock_pw, _, _, mock_page = _make_pw_mocks(evaluate_posts=fake_posts)
+
+    with _patch_pw(mock_pw):
+        result: list[TikTokPost] = await scrape_user(evil_username, limit=1)
+
+    # The JS string passed to evaluate must NOT contain the evil username
+    js_arg: str = mock_page.evaluate.call_args[0][0]
+    assert "alert(1)" not in js_arg
+
+    # Author is assigned in Python, so it should appear in the result
+    assert result[0]["author"] == evil_username

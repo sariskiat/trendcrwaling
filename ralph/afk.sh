@@ -1,52 +1,34 @@
 #!/bin/bash
-# ralph/afk.sh — batch AFK run via GitHub Copilot coding agent
+# ralph/afk.sh — batch AFK issue lister for subagent dispatch
 # Usage: bash ralph/afk.sh [max_issues]
 #
-# Creates GitHub Issues for all unblocked AFK issues and assigns Copilot.
-# Copilot works on them in parallel — no polling, just fire-and-forget.
+# Lists all unblocked AFK issues from issues/ directory.
+# Use this to see what's available, then dispatch each to a fresh
+# Copilot Chat subagent via runSubagent (or implement directly).
+#
+# Primary dispatch mode: Copilot Chat subagents (runSubagent tool)
+# Fallback: GitHub Issues with --label copilot (if Copilot agent is enabled)
 
 set -eo pipefail
 
 max=${1:-99}
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-echo "=== Ralph AFK (Copilot) · repo: $REPO · max: $max ==="
+echo "=== Ralph AFK · scanning issues/ ==="
 
-created=0
+count=0
 for f in issues/ISSUE-*.md; do
   [ -f "$f" ] || continue
   grep -qi 'Type:.*human-in-loop' "$f" && continue
-  ((created >= max)) && break
+  ((count >= max)) && break
 
   title=$(head -1 "$f" | sed 's/^#* *//')
-  body=$(cat "$f")
-
-  if [ -f ralph/prompt.md ]; then
-    body="$body
-
----
-
-## Implementation Instructions
-
-$(cat ralph/prompt.md)"
-  fi
-
-  echo "Creating: $title"
-  gh_url=$(gh issue create \
-    --repo "$REPO" \
-    --title "$title" \
-    --body "$body" \
-    --label "copilot" 2>&1)
-
-  issue_number=$(echo "$gh_url" | grep -oE '[0-9]+$')
-  gh issue edit "$issue_number" --repo "$REPO" --add-assignee "copilot" 2>/dev/null \
-    && echo "  → #$issue_number assigned to Copilot" \
-    || echo "  → #$issue_number created (Copilot agent not available — assign manually)"
-  mv "$f" issues/done/
-  ((created++))
+  echo "  [$((count + 1))] $title  ($f)"
+  ((count++))
 done
 
-if [ $created -eq 0 ]; then
+if [ $count -eq 0 ]; then
   echo "No AFK issues remaining."
 else
-  echo "Dispatched $created issues to Copilot. Check PRs on GitHub."
+  echo ""
+  echo "$count issues ready for subagent dispatch."
+  echo "Dispatch via Copilot Chat: ask the agent to implement each issue."
 fi

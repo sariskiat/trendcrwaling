@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from typing import TypedDict, cast
 
 from dotenv import load_dotenv
@@ -21,6 +22,29 @@ from scrapers.tiktok import scrape_hashtag as _scrape_tiktok_hashtag
 load_dotenv()
 
 __all__ = ["CompetitorAnalysisResult", "handle_analyze_competitor", "UnknownToolError"]
+
+_HANDLE_RE = re.compile(r"^[A-Za-z0-9_.]{1,64}$")
+_VALID_PLATFORMS = {"tiktok", "instagram", "facebook"}
+
+
+def _validate_handle(value: str, field: str) -> str:
+    """Validate a social media handle/tag/page name.
+
+    Raises ValueError if the value doesn't match the allowed pattern.
+    """
+    if not _HANDLE_RE.match(value):
+        raise ValueError(
+            f"Invalid {field}: must be 1-64 alphanumeric/underscore/dot characters"
+        )
+    return value
+
+
+def _validate_limit(value: int) -> int:
+    """Validate limit is within acceptable range."""
+    if not 1 <= value <= 100:
+        raise ValueError(f"limit must be between 1 and 100, got {value}")
+    return value
+
 
 app: Server = Server("sukishi-trend-research")
 
@@ -175,9 +199,13 @@ async def call_tool(name: str, arguments: dict[str, object]) -> list[types.TextC
         raise UnknownToolError(f"Unknown tool: {name}")
 
     if name == "analyze_competitor":
-        competitor_name: str = str(arguments["name"])
-        platforms: list[str] = list(cast(list[str], arguments["platforms"]))
-        limit: int = int(cast(int | str, arguments.get("limit", 20)))
+        competitor_name: str = _validate_handle(str(arguments["name"]), "name")
+        platforms: list[str] = [
+            p for p in cast(list[str], arguments["platforms"]) if p in _VALID_PLATFORMS
+        ]
+        if not platforms:
+            raise ValueError("No valid platforms specified")
+        limit: int = _validate_limit(int(cast(int | str, arguments.get("limit", 20))))
 
         result: CompetitorAnalysisResult = await handle_analyze_competitor(
             competitor_name, platforms, limit
@@ -189,8 +217,8 @@ async def call_tool(name: str, arguments: dict[str, object]) -> list[types.TextC
         ]
 
     if name == "scrape_tiktok_user":
-        username: str = str(arguments["username"])
-        limit: int = int(cast(int | str, arguments.get("limit", 20)))
+        username: str = _validate_handle(str(arguments["username"]), "username")
+        limit: int = _validate_limit(int(cast(int | str, arguments.get("limit", 20))))
         posts: list[TikTokPost] = await _scrape_tiktok_user(username, limit)
         return [
             types.TextContent(
@@ -199,7 +227,7 @@ async def call_tool(name: str, arguments: dict[str, object]) -> list[types.TextC
         ]
 
     if name == "scrape_tiktok_trending":
-        limit: int = int(cast(int | str, arguments.get("limit", 20)))
+        limit: int = _validate_limit(int(cast(int | str, arguments.get("limit", 20))))
         posts: list[TikTokPost] = await _scrape_tiktok_trending(limit)
         return [
             types.TextContent(
@@ -208,8 +236,8 @@ async def call_tool(name: str, arguments: dict[str, object]) -> list[types.TextC
         ]
 
     if name == "scrape_tiktok_hashtag":
-        tag: str = str(arguments["tag"])
-        limit: int = int(cast(int | str, arguments.get("limit", 20)))
+        tag: str = _validate_handle(str(arguments["tag"]), "tag")
+        limit: int = _validate_limit(int(cast(int | str, arguments.get("limit", 20))))
         posts: list[TikTokPost] = await _scrape_tiktok_hashtag(tag, limit)
         return [
             types.TextContent(

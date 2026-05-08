@@ -66,3 +66,16 @@
 | 01:19 | Edited tests/test_server.py | 2→2 lines | ~35 |
 | 01:19 | Edited tests/test_server.py | modified patch() | ~112 |
 | 01:19 | Edited tests/test_server.py | 6→5 lines | ~36 |
+
+## Session: 2026-05-08
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| — | ISSUE-020: gitignore wildcard | .gitignore | fb_cookies.txt → *_cookies.txt; already untracked | ~48 |
+| — | ISSUE-021: MCP input validation | mcp_server/server.py, tests/test_server.py | Added _validate_handle, _validate_limit; applied in call_tool for all 4 tools; 5 new tests, 12/12 pass | ~200 |
+
+## Session: 2026-05-08 ISSUE-022
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| — | ISSUE-022: try/finally browser cleanup | scrapers/facebook.py, tests/test_facebook.py | Wrapped _extract_posts in try/finally for browser.close(); added test_scrape_page_closes_browser_on_exception; 8/8 pass | ~150 |
