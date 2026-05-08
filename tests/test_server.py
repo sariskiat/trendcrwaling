@@ -1,242 +1,528 @@
 # tests/test_server.py
-"""Tests for the MCP server tool handler."""
+"""Tests for the FastMCP-based MCP server."""
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from mcp_server.server import CompetitorAnalysisResult, handle_analyze_competitor
-from scrapers.facebook import FacebookPost
-from scrapers.instagram import InstagramPost
 from scrapers.tiktok import TikTokPost
 
 
-async def test_analyze_competitor_tiktok_only() -> None:
+async def test_tiktok_user_posts_success() -> None:
+    """tiktok_user_posts returns JSON string with post data on success."""
+    from mcp_server.server import tiktok_user_posts
+
     mock_posts: list[TikTokPost] = [
         TikTokPost(
             url="https://tiktok.com/v/1",
-            desc="Promo",
+            desc="Test post",
             likes=1000,
-            views=0,
-            thumbnail_url="",
-            author="mk_suki",
-        )
-    ]
-    with patch(
-        "mcp_server.server.scrape_tiktok",
-        new_callable=AsyncMock,
-        return_value=mock_posts,
-    ):
-        result: CompetitorAnalysisResult = await handle_analyze_competitor(
-            name="mk_suki", platforms=["tiktok"], limit=5
-        )
-
-    assert "tiktok" in result
-    assert len(result["tiktok"]) == 1
-    assert "instagram" not in result
-    assert "facebook" not in result
-
-
-async def test_analyze_competitor_all_platforms() -> None:
-    tiktok_posts: list[TikTokPost] = [
-        TikTokPost(
-            url="t1", desc="d", likes=10, views=0, thumbnail_url="", author="test"
-        )
-    ]
-    ig_posts: list[InstagramPost] = [
-        InstagramPost(
-            url="i1", caption="c", likes=20, post_url="https://instagram.com/p/1/"
-        )
-    ]
-    fb_posts: list[FacebookPost] = [
-        FacebookPost(text="f1", likes=30, time="2026-05-01", post_url="", image_url="")
-    ]
-
-    with (
-        patch(
-            "mcp_server.server.scrape_tiktok",
-            new_callable=AsyncMock,
-            return_value=tiktok_posts,
-        ),
-        patch(
-            "mcp_server.server.scrape_instagram",
-            new_callable=AsyncMock,
-            return_value=ig_posts,
-        ),
-        patch("mcp_server.server.scrape_facebook", return_value=fb_posts),
-    ):
-        result: CompetitorAnalysisResult = await handle_analyze_competitor(
-            name="barbegon", platforms=["tiktok", "instagram", "facebook"], limit=5
-        )
-
-    assert "tiktok" in result
-    assert "instagram" in result
-    assert "facebook" in result
-
-
-async def test_analyze_competitor_instagram_awaited_without_session_file() -> None:
-    """scrape_instagram must be awaited with (name, limit) — no session_file arg."""
-    ig_posts: list[InstagramPost] = [
-        InstagramPost(
-            url="i1", caption="c", likes=0, post_url="https://instagram.com/p/1/"
-        )
-    ]
-    mock_scrape: AsyncMock = AsyncMock(return_value=ig_posts)
-    with patch("mcp_server.server.scrape_instagram", mock_scrape):
-        result: CompetitorAnalysisResult = await handle_analyze_competitor(
-            name="test_user", platforms=["instagram"], limit=5
-        )
-    mock_scrape.assert_awaited_once_with("test_user", 5)
-    assert result["instagram"] == ig_posts  # type: ignore[index]
-
-
-async def test_analyze_competitor_skips_unselected_platforms() -> None:
-    fb_posts: list[FacebookPost] = [
-        FacebookPost(
-            text="fb post", likes=5, time="2026-05-01", post_url="", image_url=""
-        )
-    ]
-
-    with patch("mcp_server.server.scrape_facebook", return_value=fb_posts):
-        result: CompetitorAnalysisResult = await handle_analyze_competitor(
-            name="barbegon", platforms=["facebook"], limit=5
-        )
-
-    assert "facebook" in result
-    assert "tiktok" not in result
-    assert "instagram" not in result
-
-
-async def test_scrape_tiktok_user_tool_dispatch() -> None:
-    """scrape_tiktok_user tool calls _scrape_tiktok_user(username, limit)."""
-    from mcp_server.server import call_tool
-
-    posts: list[TikTokPost] = [
-        TikTokPost(
-            url="https://tiktok.com/v/1",
-            desc="Test",
-            likes=0,
-            views=500,
-            thumbnail_url="https://img/1.jpg",
+            views=5000,
+            thumbnail_url="https://img.jpg",
             author="testuser",
         )
     ]
-    with patch(
-        "mcp_server.server._scrape_tiktok_user",
-        new_callable=AsyncMock,
-        return_value=posts,
+    with (
+        patch(
+            "mcp_server.server._scrape_tiktok_user",
+            new_callable=AsyncMock,
+            return_value=mock_posts,
+        ),
+        patch.dict("os.environ", {"TT_COOKIES_FILE": "/path/to/cookies.txt"}),
     ):
-        result = await call_tool(  # type: ignore[assignment]
-            "scrape_tiktok_user", {"username": "testuser", "limit": 5}
-        )
+        result = await tiktok_user_posts("testuser", limit=20)
 
-    assert len(result) == 1  # type: ignore[arg-type]
-    assert "testuser" in result[0].text  # type: ignore[index]
+    # Result should be a JSON string
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert isinstance(parsed, list)
+    assert len(parsed) == 1
+    assert parsed[0]["author"] == "testuser"
+    assert parsed[0]["likes"] == 1000
 
 
-async def test_scrape_tiktok_trending_tool_dispatch() -> None:
-    """scrape_tiktok_trending tool calls _scrape_tiktok_trending(limit)."""
-    from mcp_server.server import call_tool
+async def test_tiktok_user_posts_invalid_username() -> None:
+    """tiktok_user_posts raises ValidationError for invalid username."""
+    from mcp_server.server import tiktok_user_posts, ValidationError
 
-    posts: list[TikTokPost] = [
+    with patch.dict("os.environ", {"TT_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="Invalid username"):
+            await tiktok_user_posts("../../../etc/passwd", limit=20)
+
+
+async def test_tiktok_user_posts_invalid_limit_zero() -> None:
+    """tiktok_user_posts raises ValidationError for limit < 1."""
+    from mcp_server.server import tiktok_user_posts, ValidationError
+
+    with patch.dict("os.environ", {"TT_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await tiktok_user_posts("validuser", limit=0)
+
+
+async def test_tiktok_user_posts_invalid_limit_too_high() -> None:
+    """tiktok_user_posts raises ValidationError for limit > 100."""
+    from mcp_server.server import tiktok_user_posts, ValidationError
+
+    with patch.dict("os.environ", {"TT_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await tiktok_user_posts("validuser", limit=999)
+
+
+async def test_tiktok_user_posts_missing_cookies() -> None:
+    """tiktok_user_posts raises ConfigurationError with actionable message when TT_COOKIES_FILE not set."""
+    from mcp_server.server import tiktok_user_posts, ConfigurationError
+
+    with patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(
+            ConfigurationError, match="TT_COOKIES_FILE environment variable is not set"
+        ):
+            await tiktok_user_posts("validuser", limit=20)
+
+
+# Tests for tiktok_trending
+async def test_tiktok_trending_success() -> None:
+    """tiktok_trending returns JSON string with trending post data on success."""
+    from mcp_server.server import tiktok_trending
+
+    mock_posts: list[TikTokPost] = [
         TikTokPost(
-            url="https://tiktok.com/v/t1",
-            desc="Trending",
-            likes=0,
-            views=9000,
-            thumbnail_url="https://img/t1.jpg",
-            author="",
+            url="https://tiktok.com/v/trending1",
+            desc="Trending post 1",
+            likes=50000,
+            views=250000,
+            thumbnail_url="https://img.jpg",
+            author="trendinguser1",
+        ),
+        TikTokPost(
+            url="https://tiktok.com/v/trending2",
+            desc="Trending post 2",
+            likes=45000,
+            views=230000,
+            thumbnail_url="https://img2.jpg",
+            author="trendinguser2",
+        ),
+    ]
+    with (
+        patch(
+            "mcp_server.server._scrape_tiktok_trending",
+            new_callable=AsyncMock,
+            return_value=mock_posts,
+        ),
+        patch.dict("os.environ", {"TT_COOKIES_FILE": "/path/to/cookies.txt"}),
+    ):
+        result = await tiktok_trending(limit=20)
+
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert isinstance(parsed, list)
+    assert len(parsed) == 2
+    assert parsed[0]["author"] == "trendinguser1"
+    assert parsed[1]["likes"] == 45000
+
+
+async def test_tiktok_trending_invalid_limit_zero() -> None:
+    """tiktok_trending raises ValidationError for limit < 1."""
+    from mcp_server.server import tiktok_trending, ValidationError
+
+    with patch.dict("os.environ", {"TT_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await tiktok_trending(limit=0)
+
+
+async def test_tiktok_trending_invalid_limit_too_high() -> None:
+    """tiktok_trending raises ValidationError for limit > 100."""
+    from mcp_server.server import tiktok_trending, ValidationError
+
+    with patch.dict("os.environ", {"TT_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await tiktok_trending(limit=200)
+
+
+async def test_tiktok_trending_missing_cookies() -> None:
+    """tiktok_trending raises ConfigurationError with actionable message when TT_COOKIES_FILE not set."""
+    from mcp_server.server import tiktok_trending, ConfigurationError
+
+    with patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(
+            ConfigurationError, match="TT_COOKIES_FILE environment variable is not set"
+        ):
+            await tiktok_trending(limit=20)
+
+
+# Tests for tiktok_hashtag_posts
+async def test_tiktok_hashtag_posts_success() -> None:
+    """tiktok_hashtag_posts returns JSON string with hashtag post data on success."""
+    from mcp_server.server import tiktok_hashtag_posts
+
+    mock_posts: list[TikTokPost] = [
+        TikTokPost(
+            url="https://tiktok.com/v/hashtag1",
+            desc="Post with hashtag",
+            likes=5000,
+            views=25000,
+            thumbnail_url="https://img.jpg",
+            author="hashtaguserl",
         )
     ]
-    with patch(
-        "mcp_server.server._scrape_tiktok_trending",
-        new_callable=AsyncMock,
-        return_value=posts,
+    with (
+        patch(
+            "mcp_server.server._scrape_tiktok_hashtag",
+            new_callable=AsyncMock,
+            return_value=mock_posts,
+        ),
+        patch.dict("os.environ", {"TT_COOKIES_FILE": "/path/to/cookies.txt"}),
     ):
-        result = await call_tool(  # type: ignore[assignment]
-            "scrape_tiktok_trending", {"limit": 10}
-        )
+        result = await tiktok_hashtag_posts(tag="trending", limit=20)
 
-    assert len(result) == 1  # type: ignore[arg-type]
-    assert "Trending" in result[0].text  # type: ignore[index]
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert isinstance(parsed, list)
+    assert len(parsed) == 1
+    assert parsed[0]["author"] == "hashtaguserl"
+    assert parsed[0]["likes"] == 5000
 
 
-async def test_scrape_tiktok_hashtag_tool_dispatch() -> None:
-    """scrape_tiktok_hashtag tool calls _scrape_tiktok_hashtag(tag, limit)."""
-    from mcp_server.server import call_tool
+async def test_tiktok_hashtag_posts_invalid_tag() -> None:
+    """tiktok_hashtag_posts raises ValidationError for invalid tag."""
+    from mcp_server.server import tiktok_hashtag_posts, ValidationError
 
-    posts: list[TikTokPost] = [
-        TikTokPost(
-            url="https://tiktok.com/v/h1",
-            desc="Hashtag post",
-            likes=0,
-            views=3000,
-            thumbnail_url="https://img/h1.jpg",
-            author="",
+    with patch.dict("os.environ", {"TT_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="Invalid tag"):
+            await tiktok_hashtag_posts(tag="../../etc/passwd", limit=20)
+
+
+async def test_tiktok_hashtag_posts_invalid_limit_zero() -> None:
+    """tiktok_hashtag_posts raises ValidationError for limit < 1."""
+    from mcp_server.server import tiktok_hashtag_posts, ValidationError
+
+    with patch.dict("os.environ", {"TT_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await tiktok_hashtag_posts(tag="trending", limit=0)
+
+
+async def test_tiktok_hashtag_posts_invalid_limit_too_high() -> None:
+    """tiktok_hashtag_posts raises ValidationError for limit > 100."""
+    from mcp_server.server import tiktok_hashtag_posts, ValidationError
+
+    with patch.dict("os.environ", {"TT_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await tiktok_hashtag_posts(tag="trending", limit=500)
+
+
+async def test_tiktok_hashtag_posts_missing_cookies() -> None:
+    """tiktok_hashtag_posts raises ConfigurationError with actionable message when TT_COOKIES_FILE not set."""
+    from mcp_server.server import tiktok_hashtag_posts, ConfigurationError
+
+    with patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(
+            ConfigurationError, match="TT_COOKIES_FILE environment variable is not set"
+        ):
+            await tiktok_hashtag_posts(tag="trending", limit=20)
+
+
+# Tests for instagram_user_posts
+async def test_instagram_user_posts_success() -> None:
+    """instagram_user_posts returns JSON string with post data on success."""
+    from mcp_server.server import instagram_user_posts
+    from scrapers.instagram import InstagramPost
+
+    mock_posts: list[InstagramPost] = [
+        InstagramPost(
+            url="https://instagram.com/img1.jpg",
+            caption="Test post",
+            likes=1000,
+            post_url="https://instagram.com/p/abc123",
         )
     ]
-    with patch(
-        "mcp_server.server._scrape_tiktok_hashtag",
-        new_callable=AsyncMock,
-        return_value=posts,
+    with (
+        patch(
+            "mcp_server.server._scrape_instagram_user",
+            new_callable=AsyncMock,
+            return_value=mock_posts,
+        ),
+        patch.dict("os.environ", {"IG_COOKIES_FILE": "/path/to/cookies.txt"}),
     ):
-        result = await call_tool(  # type: ignore[assignment]
-            "scrape_tiktok_hashtag", {"tag": "sukiyaki", "limit": 5}
+        result = await instagram_user_posts("testuser", limit=20)
+
+    # Result should be a JSON string
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert isinstance(parsed, list)
+    assert len(parsed) == 1
+    assert parsed[0]["caption"] == "Test post"
+    assert parsed[0]["likes"] == 1000
+
+
+async def test_instagram_user_posts_invalid_username() -> None:
+    """instagram_user_posts raises ValidationError for invalid username."""
+    from mcp_server.server import instagram_user_posts, ValidationError
+
+    with patch.dict("os.environ", {"IG_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="Invalid username"):
+            await instagram_user_posts("../../../etc/passwd", limit=20)
+
+
+async def test_instagram_user_posts_invalid_limit_zero() -> None:
+    """instagram_user_posts raises ValidationError for limit < 1."""
+    from mcp_server.server import instagram_user_posts, ValidationError
+
+    with patch.dict("os.environ", {"IG_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await instagram_user_posts("validuser", limit=0)
+
+
+async def test_instagram_user_posts_invalid_limit_too_high() -> None:
+    """instagram_user_posts raises ValidationError for limit > 100."""
+    from mcp_server.server import instagram_user_posts, ValidationError
+
+    with patch.dict("os.environ", {"IG_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await instagram_user_posts("validuser", limit=999)
+
+
+async def test_instagram_user_posts_missing_cookies() -> None:
+    """instagram_user_posts raises ConfigurationError with actionable message when IG_COOKIES_FILE not set."""
+    from mcp_server.server import instagram_user_posts, ConfigurationError
+
+    with patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(
+            ConfigurationError, match="IG_COOKIES_FILE environment variable is not set"
+        ):
+            await instagram_user_posts("validuser", limit=20)
+
+
+# Tests for facebook_page_posts
+async def test_facebook_page_posts_success() -> None:
+    """facebook_page_posts returns JSON string with post data on success."""
+    from mcp_server.server import facebook_page_posts
+    from scrapers.facebook import FacebookPost
+
+    mock_posts: list[FacebookPost] = [
+        FacebookPost(
+            text="Test post",
+            likes=500,
+            time="2025-01-15",
+            post_url="https://facebook.com/posts/abc123",
+            image_url="https://scontent.xx.fbcdn.net/img.jpg",
         )
+    ]
+    with (
+        patch(
+            "mcp_server.server._scrape_facebook_page",
+            new_callable=AsyncMock,
+            return_value=mock_posts,
+        ),
+        patch.dict("os.environ", {"FB_COOKIES_FILE": "/path/to/cookies.txt"}),
+    ):
+        result = await facebook_page_posts("testpage", limit=20)
 
-    assert len(result) == 1  # type: ignore[arg-type]
-    assert "Hashtag post" in result[0].text  # type: ignore[index]
-
-
-async def test_call_tool_rejects_invalid_username() -> None:
-    """scrape_tiktok_user rejects usernames with special characters."""
-    from mcp_server.server import call_tool
-
-    with pytest.raises(ValueError, match="Invalid username"):
-        await call_tool("scrape_tiktok_user", {"username": "../../../etc/passwd"})
-
-
-async def test_call_tool_rejects_invalid_tag() -> None:
-    """scrape_tiktok_hashtag rejects tags with special characters."""
-    from mcp_server.server import call_tool
-
-    with pytest.raises(ValueError, match="Invalid tag"):
-        await call_tool("scrape_tiktok_hashtag", {"tag": "'; DROP TABLE--", "limit": 5})
-
-
-async def test_call_tool_rejects_excessive_limit() -> None:
-    """Tools reject limit > 100."""
-    from mcp_server.server import call_tool
-
-    with pytest.raises(ValueError, match="limit must be between 1 and 100"):
-        await call_tool("scrape_tiktok_trending", {"limit": 999})
+    # Result should be a JSON string
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert isinstance(parsed, list)
+    assert len(parsed) == 1
+    assert parsed[0]["text"] == "Test post"
+    assert parsed[0]["likes"] == 500
 
 
-async def test_call_tool_rejects_invalid_competitor_name() -> None:
-    """analyze_competitor rejects names with path traversal."""
-    from mcp_server.server import call_tool
+async def test_facebook_page_posts_invalid_page_name() -> None:
+    """facebook_page_posts raises ValidationError for invalid page name."""
+    from mcp_server.server import facebook_page_posts, ValidationError
 
-    with pytest.raises(ValueError, match="Invalid name"):
-        await call_tool(
-            "analyze_competitor", {"name": "../../etc", "platforms": ["tiktok"]}
-        )
-
-
-async def test_call_tool_rejects_invalid_platforms() -> None:
-    """analyze_competitor rejects when no valid platforms remain."""
-    from mcp_server.server import call_tool
-
-    with pytest.raises(ValueError, match="Invalid name|No valid platforms"):
-        await call_tool(
-            "analyze_competitor", {"name": "validname", "platforms": ["hackme"]}
-        )
+    with patch.dict("os.environ", {"FB_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="Invalid page_name"):
+            await facebook_page_posts("../../../etc/passwd", limit=20)
 
 
-async def test_handle_analyze_competitor_validates_name_directly() -> None:
-    """handle_analyze_competitor validates input even when called directly."""
-    with pytest.raises(ValueError, match="Invalid name"):
-        await handle_analyze_competitor(
-            name="../../../etc/passwd", platforms=["tiktok"], limit=5
-        )
+async def test_facebook_page_posts_invalid_limit_zero() -> None:
+    """facebook_page_posts raises ValidationError for limit < 1."""
+    from mcp_server.server import facebook_page_posts, ValidationError
+
+    with patch.dict("os.environ", {"FB_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await facebook_page_posts("validpage", limit=0)
+
+
+async def test_facebook_page_posts_invalid_limit_too_high() -> None:
+    """facebook_page_posts raises ValidationError for limit > 100."""
+    from mcp_server.server import facebook_page_posts, ValidationError
+
+    with patch.dict("os.environ", {"FB_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await facebook_page_posts("validpage", limit=999)
+
+
+async def test_facebook_page_posts_missing_cookies() -> None:
+    """facebook_page_posts raises ConfigurationError with actionable message when FB_COOKIES_FILE not set."""
+    from mcp_server.server import facebook_page_posts, ConfigurationError
+
+    with patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(
+            ConfigurationError, match="FB_COOKIES_FILE environment variable is not set"
+        ):
+            await facebook_page_posts("validpage", limit=20)
+
+
+# Tests for scraper exception propagation
+async def test_tiktok_user_posts_scraper_error_propagates() -> None:
+    """tiktok_user_posts propagates TikTokScraperError from scraper."""
+    from mcp_server.server import tiktok_user_posts
+    from scrapers.tiktok import TikTokScraperError
+
+    with (
+        patch(
+            "mcp_server.server._scrape_tiktok_user",
+            new_callable=AsyncMock,
+            side_effect=TikTokScraperError("Browser failed"),
+        ),
+        patch.dict("os.environ", {"TT_COOKIES_FILE": "/path/to/cookies.txt"}),
+    ):
+        with pytest.raises(TikTokScraperError, match="Browser failed"):
+            await tiktok_user_posts("testuser", limit=20)
+
+
+async def test_instagram_user_posts_scraper_error_propagates() -> None:
+    """instagram_user_posts propagates InstagramScraperError from scraper."""
+    from mcp_server.server import instagram_user_posts
+    from scrapers.instagram import InstagramScraperError
+
+    with (
+        patch(
+            "mcp_server.server._scrape_instagram_user",
+            new_callable=AsyncMock,
+            side_effect=InstagramScraperError("Login required"),
+        ),
+        patch.dict("os.environ", {"IG_COOKIES_FILE": "/path/to/cookies.txt"}),
+    ):
+        with pytest.raises(InstagramScraperError, match="Login required"):
+            await instagram_user_posts("testuser", limit=20)
+
+
+async def test_facebook_page_posts_scraper_error_propagates() -> None:
+    """facebook_page_posts propagates FacebookScraperError from scraper."""
+    from mcp_server.server import facebook_page_posts
+    from scrapers.facebook import FacebookScraperError
+
+    with (
+        patch(
+            "mcp_server.server._scrape_facebook_page",
+            new_callable=AsyncMock,
+            side_effect=FacebookScraperError("Page not found"),
+        ),
+        patch.dict("os.environ", {"FB_COOKIES_FILE": "/path/to/cookies.txt"}),
+    ):
+        with pytest.raises(FacebookScraperError, match="Page not found"):
+            await facebook_page_posts("testpage", limit=20)
+
+
+async def test_analyze_image_openai_error_propagates() -> None:
+    """analyze_image propagates OpenAI API errors."""
+    from mcp_server.server import analyze_image
+    from openai import APIConnectionError
+    import httpx
+
+    error = APIConnectionError(
+        message="Connection refused",
+        request=httpx.Request("GET", "https://api.openai.com"),
+    )
+
+    with (
+        patch(
+            "mcp_server.image_analysis.AsyncOpenAI",
+            side_effect=error,
+        ),
+        patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}),
+    ):
+        with pytest.raises(APIConnectionError):
+            await analyze_image("https://example.com/image.jpg")
+
+
+# Tests for custom exception hierarchy
+def test_exception_hierarchy_exists() -> None:
+    """Custom exception classes exist with correct inheritance."""
+    from mcp_server.exceptions import (
+        AnalysisError,
+        ConfigurationError,
+        MCPServerError,
+        ValidationError,
+    )
+
+    # All inherit from MCPServerError, which inherits from ValueError
+    assert issubclass(MCPServerError, ValueError)
+    assert issubclass(ValidationError, MCPServerError)
+    assert issubclass(ConfigurationError, MCPServerError)
+    assert issubclass(AnalysisError, MCPServerError)
+
+
+def test_validation_error_is_value_error() -> None:
+    """ValidationError is a ValueError for FastMCP compatibility."""
+    from mcp_server.exceptions import ValidationError
+
+    exc = ValidationError("test message")
+    assert isinstance(exc, ValueError)
+    assert str(exc) == "test message"
+
+
+def test_configuration_error_is_value_error() -> None:
+    """ConfigurationError is a ValueError for FastMCP compatibility."""
+    from mcp_server.exceptions import ConfigurationError
+
+    exc = ConfigurationError("missing var")
+    assert isinstance(exc, ValueError)
+    assert str(exc) == "missing var"
+
+
+def test_analysis_error_is_value_error() -> None:
+    """AnalysisError is a ValueError for FastMCP compatibility."""
+    from mcp_server.exceptions import AnalysisError
+
+    exc = AnalysisError("empty response")
+    assert isinstance(exc, ValueError)
+    assert str(exc) == "empty response"
+
+
+# Smoke test for tool registration
+def test_all_tools_registered() -> None:
+    """All 6 MCP tools are registered on the mcp object."""
+    from mcp_server.server import mcp
+
+    expected_tools: set[str] = {
+        "tiktok_user_posts",
+        "tiktok_trending",
+        "tiktok_hashtag_posts",
+        "instagram_user_posts",
+        "facebook_page_posts",
+        "analyze_image",
+    }
+
+    registered_tools: set[str] = set(mcp._tool_manager._tools.keys())
+
+    assert expected_tools == registered_tools, (
+        f"Missing tools: {expected_tools - registered_tools}, "
+        f"Extra tools: {registered_tools - expected_tools}"
+    )
+
+
+def test_analyze_image_docstring_lists_correct_exceptions() -> None:
+    """analyze_image docstring Raises section lists ValidationError, ConfigurationError, AnalysisError."""
+    from mcp_server.server import analyze_image
+
+    docstring = analyze_image.__doc__
+    assert docstring is not None, "analyze_image should have a docstring"
+
+    # Check that Raises section lists the correct exception types
+    assert "ValidationError" in docstring, "Docstring should list ValidationError"
+    assert "ConfigurationError" in docstring, "Docstring should list ConfigurationError"
+    assert "AnalysisError" in docstring, "Docstring should list AnalysisError"
+
+    # Verify the old incorrect ValueError is not in Raises section
+    # (ValueError might still be mentioned as parent class, but not as a raised type)
+    raises_section = (
+        docstring.split("Raises:")[1].split("\n\n")[0] if "Raises:" in docstring else ""
+    )
+    assert (
+        "ValueError:" not in raises_section
+    ), "Raises section should not list ValueError as exception type"
