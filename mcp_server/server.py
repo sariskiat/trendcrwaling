@@ -14,6 +14,9 @@ from mcp.server.stdio import stdio_server
 
 from scrapers import FacebookPost, InstagramPost, TikTokPost
 from scrapers import scrape_facebook, scrape_instagram, scrape_tiktok
+from scrapers.tiktok import scrape_user as _scrape_tiktok_user
+from scrapers.tiktok import scrape_trending as _scrape_tiktok_trending
+from scrapers.tiktok import scrape_hashtag as _scrape_tiktok_hashtag
 
 load_dotenv()
 
@@ -93,7 +96,59 @@ async def list_tools() -> list[types.Tool]:
                 },
                 "required": ["name", "platforms"],
             },
-        )
+        ),
+        types.Tool(
+            name="scrape_tiktok_user",
+            description="Scrape recent TikTok posts for a given username. Returns structured post data (URLs, captions, likes, views, thumbnails).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "username": {
+                        "type": "string",
+                        "description": "TikTok handle without @",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Max posts to return",
+                    },
+                },
+                "required": ["username"],
+            },
+        ),
+        types.Tool(
+            name="scrape_tiktok_trending",
+            description="Scrape trending TikTok posts from the Explore page. Returns structured post data.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Max posts to return",
+                    },
+                },
+            },
+        ),
+        types.Tool(
+            name="scrape_tiktok_hashtag",
+            description="Scrape TikTok posts for a specific hashtag. Returns structured post data.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "tag": {
+                        "type": "string",
+                        "description": "Hashtag without # (e.g. 'sukiyaki')",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Max posts to return",
+                    },
+                },
+                "required": ["tag"],
+            },
+        ),
     ]
 
 
@@ -111,21 +166,58 @@ async def call_tool(name: str, arguments: dict[str, object]) -> list[types.TextC
     Raises:
         UnknownToolError: If the tool name is not recognised.
     """
-    if name != "analyze_competitor":
+    if name not in {
+        "analyze_competitor",
+        "scrape_tiktok_user",
+        "scrape_tiktok_trending",
+        "scrape_tiktok_hashtag",
+    }:
         raise UnknownToolError(f"Unknown tool: {name}")
 
-    competitor_name: str = str(arguments["name"])
-    platforms: list[str] = list(cast(list[str], arguments["platforms"]))
-    limit: int = int(cast(int | str, arguments.get("limit", 20)))
+    if name == "analyze_competitor":
+        competitor_name: str = str(arguments["name"])
+        platforms: list[str] = list(cast(list[str], arguments["platforms"]))
+        limit: int = int(cast(int | str, arguments.get("limit", 20)))
 
-    result: CompetitorAnalysisResult = await handle_analyze_competitor(
-        competitor_name, platforms, limit
-    )
-    return [
-        types.TextContent(
-            type="text", text=json.dumps(result, ensure_ascii=False, indent=2)
+        result: CompetitorAnalysisResult = await handle_analyze_competitor(
+            competitor_name, platforms, limit
         )
-    ]
+        return [
+            types.TextContent(
+                type="text", text=json.dumps(result, ensure_ascii=False, indent=2)
+            )
+        ]
+
+    if name == "scrape_tiktok_user":
+        username: str = str(arguments["username"])
+        limit: int = int(cast(int | str, arguments.get("limit", 20)))
+        posts: list[TikTokPost] = await _scrape_tiktok_user(username, limit)
+        return [
+            types.TextContent(
+                type="text", text=json.dumps(posts, ensure_ascii=False, indent=2)
+            )
+        ]
+
+    if name == "scrape_tiktok_trending":
+        limit: int = int(cast(int | str, arguments.get("limit", 20)))
+        posts: list[TikTokPost] = await _scrape_tiktok_trending(limit)
+        return [
+            types.TextContent(
+                type="text", text=json.dumps(posts, ensure_ascii=False, indent=2)
+            )
+        ]
+
+    if name == "scrape_tiktok_hashtag":
+        tag: str = str(arguments["tag"])
+        limit: int = int(cast(int | str, arguments.get("limit", 20)))
+        posts: list[TikTokPost] = await _scrape_tiktok_hashtag(tag, limit)
+        return [
+            types.TextContent(
+                type="text", text=json.dumps(posts, ensure_ascii=False, indent=2)
+            )
+        ]
+
+    raise UnknownToolError(f"Unknown tool: {name}")
 
 
 async def main() -> None:

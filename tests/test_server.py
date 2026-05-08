@@ -14,7 +14,14 @@ from scrapers.tiktok import TikTokPost
 
 async def test_analyze_competitor_tiktok_only() -> None:
     mock_posts: list[TikTokPost] = [
-        TikTokPost(url="https://tiktok.com/v/1", desc="Promo", likes=1000)
+        TikTokPost(
+            url="https://tiktok.com/v/1",
+            desc="Promo",
+            likes=1000,
+            views=0,
+            thumbnail_url="",
+            author="mk_suki",
+        )
     ]
     with patch(
         "mcp_server.server.scrape_tiktok",
@@ -32,7 +39,11 @@ async def test_analyze_competitor_tiktok_only() -> None:
 
 
 async def test_analyze_competitor_all_platforms() -> None:
-    tiktok_posts: list[TikTokPost] = [TikTokPost(url="t1", desc="d", likes=10)]
+    tiktok_posts: list[TikTokPost] = [
+        TikTokPost(
+            url="t1", desc="d", likes=10, views=0, thumbnail_url="", author="test"
+        )
+    ]
     ig_posts: list[InstagramPost] = [
         InstagramPost(
             url="i1", caption="c", likes=20, post_url="https://instagram.com/p/1/"
@@ -77,7 +88,7 @@ async def test_analyze_competitor_instagram_awaited_without_session_file() -> No
             name="test_user", platforms=["instagram"], limit=5
         )
     mock_scrape.assert_awaited_once_with("test_user", 5)
-    assert result["instagram"] == ig_posts
+    assert result["instagram"] == ig_posts  # type: ignore[index]
 
 
 async def test_analyze_competitor_skips_unselected_platforms() -> None:
@@ -95,3 +106,84 @@ async def test_analyze_competitor_skips_unselected_platforms() -> None:
     assert "facebook" in result
     assert "tiktok" not in result
     assert "instagram" not in result
+
+
+async def test_scrape_tiktok_user_tool_dispatch() -> None:
+    """scrape_tiktok_user tool calls _scrape_tiktok_user(username, limit)."""
+    from mcp_server.server import call_tool
+
+    posts: list[TikTokPost] = [
+        TikTokPost(
+            url="https://tiktok.com/v/1",
+            desc="Test",
+            likes=0,
+            views=500,
+            thumbnail_url="https://img/1.jpg",
+            author="testuser",
+        )
+    ]
+    with patch(
+        "mcp_server.server._scrape_tiktok_user",
+        new_callable=AsyncMock,
+        return_value=posts,
+    ):
+        result = await call_tool(  # type: ignore[assignment]
+            "scrape_tiktok_user", {"username": "testuser", "limit": 5}
+        )
+
+    assert len(result) == 1  # type: ignore[arg-type]
+    assert "testuser" in result[0].text  # type: ignore[index]
+
+
+async def test_scrape_tiktok_trending_tool_dispatch() -> None:
+    """scrape_tiktok_trending tool calls _scrape_tiktok_trending(limit)."""
+    from mcp_server.server import call_tool
+
+    posts: list[TikTokPost] = [
+        TikTokPost(
+            url="https://tiktok.com/v/t1",
+            desc="Trending",
+            likes=0,
+            views=9000,
+            thumbnail_url="https://img/t1.jpg",
+            author="",
+        )
+    ]
+    with patch(
+        "mcp_server.server._scrape_tiktok_trending",
+        new_callable=AsyncMock,
+        return_value=posts,
+    ):
+        result = await call_tool(  # type: ignore[assignment]
+            "scrape_tiktok_trending", {"limit": 10}
+        )
+
+    assert len(result) == 1  # type: ignore[arg-type]
+    assert "Trending" in result[0].text  # type: ignore[index]
+
+
+async def test_scrape_tiktok_hashtag_tool_dispatch() -> None:
+    """scrape_tiktok_hashtag tool calls _scrape_tiktok_hashtag(tag, limit)."""
+    from mcp_server.server import call_tool
+
+    posts: list[TikTokPost] = [
+        TikTokPost(
+            url="https://tiktok.com/v/h1",
+            desc="Hashtag post",
+            likes=0,
+            views=3000,
+            thumbnail_url="https://img/h1.jpg",
+            author="",
+        )
+    ]
+    with patch(
+        "mcp_server.server._scrape_tiktok_hashtag",
+        new_callable=AsyncMock,
+        return_value=posts,
+    ):
+        result = await call_tool(  # type: ignore[assignment]
+            "scrape_tiktok_hashtag", {"tag": "sukiyaki", "limit": 5}
+        )
+
+    assert len(result) == 1  # type: ignore[arg-type]
+    assert "Hashtag post" in result[0].text  # type: ignore[index]
