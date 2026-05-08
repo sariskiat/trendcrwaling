@@ -14,3 +14,4 @@ ig_session.json
 .env
 .pytest_cache/
 *_cookies.txt
+login_error.html

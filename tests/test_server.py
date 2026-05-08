@@ -232,3 +232,11 @@ async def test_call_tool_rejects_invalid_platforms() -> None:
         await call_tool(
             "analyze_competitor", {"name": "validname", "platforms": ["hackme"]}
         )
+
+
+async def test_handle_analyze_competitor_validates_name_directly() -> None:
+    """handle_analyze_competitor validates input even when called directly."""
+    with pytest.raises(ValueError, match="Invalid name"):
+        await handle_analyze_competitor(
+            name="../../../etc/passwd", platforms=["tiktok"], limit=5
+        )

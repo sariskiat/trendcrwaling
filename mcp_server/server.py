@@ -76,6 +76,13 @@ async def handle_analyze_competitor(
     Returns:
         CompetitorAnalysisResult keyed by platform with typed post lists.
     """
+    _validate_handle(name, "name")
+    _validate_limit(limit)
+    platforms = [p for p in platforms if p in _VALID_PLATFORMS]
+    if not platforms:
+        raise ValueError(
+            f"No valid platforms provided. Must include one of: {sorted(_VALID_PLATFORMS)}"
+        )
     results: CompetitorAnalysisResult = {}
     if "tiktok" in platforms:
         results["tiktok"] = await scrape_tiktok(name, limit)
