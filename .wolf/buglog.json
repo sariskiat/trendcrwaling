@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "bugs": [
+    {
+      "id": "bug-001",
+      "timestamp": "2026-05-07T16:57:40.620Z",
+      "error_message": "Wrong operator: != should be ==",
+      "file": "mcp_server/server.py",
+      "root_cause": "Used \"!=\" instead of \"==\"",
+      "fix": "Changed operator != → ==",
+      "tags": [
+        "auto-detected",
+        "operator-fix",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-07T16:57:40.620Z"
+    },
+    {
+      "id": "bug-002",
+      "timestamp": "2026-05-08T00:00:00.000Z",
+      "error_message": "JS injection via author param in _extract_posts",
+      "file": "scrapers/tiktok.py",
+      "root_cause": "author parameter interpolated into JS f-string passed to page.evaluate(), allowing script injection via crafted username",
+      "fix": "Removed author from JS string. Assign entry['author'] = author in Python after evaluate returns.",
+      "tags": ["security", "xss", "injection", "ISSUE-019", "py"],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-08T00:00:00.000Z"
+    }
+  ]
+}

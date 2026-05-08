@@ -152,18 +152,21 @@ async def scrape_page(page: str, limit: int = 20) -> list[FacebookPost]:
     try:
         async with async_playwright() as pw:
             browser, pg = await _setup_browser(pw, cookie_path, page)
-            raw: list[dict[str, str]] = await _extract_posts(pg)
-            await browser.close()
-            return [
-                FacebookPost(
-                    text=entry.get("text", ""),
-                    likes=0,
-                    time=entry.get("time", ""),
-                    post_url=entry.get("post_url", ""),
-                    image_url=entry.get("image_url", ""),
-                )
-                for entry in raw[:limit]
-            ]
+            try:
+                raw: list[dict[str, str]] = await _extract_posts(pg)
+                posts: list[FacebookPost] = [
+                    FacebookPost(
+                        text=entry.get("text", ""),
+                        likes=0,
+                        time=entry.get("time", ""),
+                        post_url=entry.get("post_url", ""),
+                        image_url=entry.get("image_url", ""),
+                    )
+                    for entry in raw[:limit]
+                ]
+            finally:
+                await browser.close()
+            return posts
     except FacebookScraperError:
         raise
     except Exception as exc:
