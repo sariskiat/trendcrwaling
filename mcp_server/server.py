@@ -25,6 +25,7 @@ from scrapers.tiktok import scrape_trending as _scrape_tiktok_trending
 from scrapers.tiktok import scrape_hashtag as _scrape_tiktok_hashtag
 from scrapers.tiktok_api import TikTokApiPost, scrape_user as _scrape_tiktok_api_user
 from scrapers.tiktok_tikapi import TikApiPost, scrape_user as _scrape_tikapi_user
+from scrapers.tiktok_apify import ApifyTikTokPost, scrape_user as _scrape_apify_user
 from scrapers.instagram import InstagramPost, scrape_user as _scrape_instagram_user
 from scrapers.facebook import FacebookPost, scrape_page as _scrape_facebook_page
 
@@ -140,6 +141,19 @@ async def tiktok_user_posts_tikapi(username: str, limit: int = 20) -> str:
     _validate_limit(limit)
 
     posts: list[TikApiPost] = await _scrape_tikapi_user(username, limit)
+    return json.dumps(posts, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def tiktok_user_posts_apify(username: str, limit: int = 20) -> str:
+    """Scrape TikTok posts for a user using Apify Clockworks managed API.
+
+    Requires APIFY_TOKEN environment variable to be set.
+    """
+    _validate_handle(username, "username")
+    _validate_limit(limit)
+
+    posts: list[ApifyTikTokPost] = await _scrape_apify_user(username, limit)
     return json.dumps(posts, ensure_ascii=False, indent=2)
 
 
