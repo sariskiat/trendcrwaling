@@ -307,6 +307,76 @@ async def test_tiktok_user_posts_api_config_error_propagates() -> None:
             await tiktok_user_posts_api("testuser", limit=20)
 
 
+# Tests for tiktok_user_posts_tikapi
+async def test_tiktok_user_posts_tikapi_success() -> None:
+    """tiktok_user_posts_tikapi returns JSON string with post data including source provenance."""
+    from mcp_server.server import tiktok_user_posts_tikapi
+    from scrapers.tiktok_tikapi import TikApiPost
+
+    mock_posts: list[TikApiPost] = [
+        TikApiPost(
+            url="https://tiktok.com/@testuser/video/123",
+            desc="TikAPI post",
+            likes=1000,
+            views=5000,
+            thumbnail_url="https://img.jpg",
+            author="testuser",
+            source="tikapi",
+        )
+    ]
+    with patch(
+        "mcp_server.server._scrape_tikapi_user",
+        new_callable=AsyncMock,
+        return_value=mock_posts,
+    ):
+        result = await tiktok_user_posts_tikapi("testuser", limit=20)
+
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert isinstance(parsed, list)
+    assert len(parsed) == 1
+    assert parsed[0]["author"] == "testuser"
+    assert parsed[0]["likes"] == 1000
+    assert parsed[0]["source"] == "tikapi"
+
+
+async def test_tiktok_user_posts_tikapi_invalid_username() -> None:
+    """tiktok_user_posts_tikapi raises ValidationError for invalid username."""
+    from mcp_server.server import tiktok_user_posts_tikapi, ValidationError
+
+    with pytest.raises(ValidationError, match="Invalid username"):
+        await tiktok_user_posts_tikapi("../../../etc/passwd", limit=20)
+
+
+async def test_tiktok_user_posts_tikapi_invalid_limit_zero() -> None:
+    """tiktok_user_posts_tikapi raises ValidationError for limit < 1."""
+    from mcp_server.server import tiktok_user_posts_tikapi, ValidationError
+
+    with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+        await tiktok_user_posts_tikapi("validuser", limit=0)
+
+
+async def test_tiktok_user_posts_tikapi_invalid_limit_too_high() -> None:
+    """tiktok_user_posts_tikapi raises ValidationError for limit > 100."""
+    from mcp_server.server import tiktok_user_posts_tikapi, ValidationError
+
+    with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+        await tiktok_user_posts_tikapi("validuser", limit=999)
+
+
+async def test_tiktok_user_posts_tikapi_config_error_propagates() -> None:
+    """tiktok_user_posts_tikapi propagates ConfigurationError when TIKAPI_KEY missing."""
+    from mcp_server.server import tiktok_user_posts_tikapi, ConfigurationError
+
+    with patch(
+        "mcp_server.server._scrape_tikapi_user",
+        new_callable=AsyncMock,
+        side_effect=ConfigurationError("TIKAPI_KEY environment variable is not set"),
+    ):
+        with pytest.raises(ConfigurationError, match="TIKAPI_KEY"):
+            await tiktok_user_posts_tikapi("testuser", limit=20)
+
+
 # Tests for instagram_user_posts
 async def test_instagram_user_posts_success() -> None:
     """instagram_user_posts returns JSON string with post data on success."""
@@ -570,7 +640,7 @@ def test_analysis_error_is_value_error() -> None:
 
 # Smoke test for tool registration
 def test_all_tools_registered() -> None:
-    """All 7 MCP tools are registered on the mcp object."""
+    """All 8 MCP tools are registered on the mcp object."""
     from mcp_server.server import mcp
 
     expected_tools: set[str] = {
@@ -578,6 +648,7 @@ def test_all_tools_registered() -> None:
         "tiktok_trending",
         "tiktok_hashtag_posts",
         "tiktok_user_posts_api",
+        "tiktok_user_posts_tikapi",
         "instagram_user_posts",
         "facebook_page_posts",
         "analyze_image",
