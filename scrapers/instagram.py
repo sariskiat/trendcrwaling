@@ -304,6 +304,82 @@ async def scrape_trending(
         raise InstagramScraperError(f"Failed to scrape trending posts: {exc}") from exc
 
 
+async def _scrape_hashtag(hashtag: str, ctx: BrowserContext) -> list[InstagramPost]:
+    """
+    Scrape posts for a single hashtag using Playwright context.
+    """
+    pg: Page = await ctx.new_page()
+    await pg.goto(
+        f"https://www.instagram.com/explore/tags/{hashtag}/",
+        wait_until="domcontentloaded",
+        timeout=30000,
+    )
+    await pg.wait_for_timeout(5000)
+    raw: list[dict[str, str]] = await _extract_posts(pg)
+    posts: list[InstagramPost] = [
+        InstagramPost(
+            url=entry.get("url", ""),
+            caption=entry.get("caption", ""),
+            likes=0,
+            post_url=entry.get("post_url", ""),
+            created_at=_shortcode_to_timestamp(
+                _extract_shortcode(entry.get("post_url", ""))
+            ),
+        )
+        for entry in raw
+    ]
+    await pg.close()
+    return posts
+
+
+async def scrape_hashtag(
+    query: str, limit: int = 10, max_age_days: int = 10
+) -> list[InstagramPost]:
+    """
+    Scrape Instagram posts for a given query using hashtag_generator, filter by max_age_days, enrich with real like counts.
+    """
+    if not query or not isinstance(query, str):
+        raise ValueError("query must be a non-empty string")
+    if limit <= 0:
+        raise ValueError(f"limit must be positive, got {limit}")
+    cookie_path: str | None = _cookie_file()
+    try:
+        from scrapers.hashtag_generator import generate_hashtags
+
+        hashtags = await generate_hashtags(query, platform="instagram")
+        async with async_playwright() as pw:
+            browser: Browser = await pw.chromium.launch(headless=True)
+            ctx: BrowserContext = await browser.new_context(
+                user_agent=_USER_AGENT,
+                viewport={"width": 1280, "height": 900},
+            )
+            if cookie_path is not None:
+                await ctx.add_cookies(_load_cookies(cookie_path))
+            all_posts: list[InstagramPost] = []
+            for tag in hashtags:
+                posts = await _scrape_hashtag(tag, ctx)
+                all_posts.extend(posts)
+            # Filter by max_age_days
+            import time
+
+            now = time.time()
+            filtered = [
+                p for p in all_posts if now - p["created_at"] <= max_age_days * 86400
+            ]
+            # Rank by likes
+            filtered.sort(key=lambda p: p["likes"], reverse=True)
+            # Limit
+            filtered = filtered[:limit]
+            # Enrich with real like counts
+            filtered = await _enrich_posts_with_likes(ctx, filtered)
+            await browser.close()
+            return filtered
+    except InstagramScraperError:
+        raise
+    except Exception as exc:
+        raise InstagramScraperError(f"Failed to scrape hashtag posts: {exc}") from exc
+
+
 async def scrape_user(username: str, limit: int = 20) -> list[InstagramPost]:
     """Return recent posts from a public Instagram profile.
 

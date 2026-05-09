@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from contextlib import AbstractContextManager
 from unittest.mock import AsyncMock, MagicMock, patch
+import sys
 
 import pytest
 
@@ -236,6 +237,45 @@ def test_post_link_selector_includes_reels() -> None:
 
 # ── ISSUE-046: detail-page likes ──────────────────────────────────────────────
 from scrapers.instagram import _enrich_posts_with_likes, _scrape_post_likes  # noqa: E402
+
+
+@pytest.mark.asyncio
+async def test_scrape_hashtag_filters_old_posts():
+    """
+    scrape_hashtag should filter out posts older than max_age_days.
+    """
+    fake_now = 1700000000
+    old_post = {
+        "post_url": "https://www.instagram.com/p/OLD/",
+        "url": "https://cdn.instagram.com/img/old.jpg",
+        "caption": "old post",
+        "created_at": fake_now - 20 * 86400,
+        "likes": 100,
+    }
+    new_post = {
+        "post_url": "https://www.instagram.com/p/NEW/",
+        "url": "https://cdn.instagram.com/img/new.jpg",
+        "caption": "new post",
+        "created_at": fake_now - 2 * 86400,
+        "likes": 200,
+    }
+    with (
+        patch("scrapers.hashtag_generator.generate_hashtags", return_value=["testtag"]),
+        patch("scrapers.instagram._scrape_hashtag", return_value=[old_post, new_post]),
+        patch(
+            "scrapers.instagram._enrich_posts_with_likes",
+            side_effect=lambda ctx, posts: posts,
+        ),
+        patch("time.time", return_value=fake_now),
+    ):
+        sys.modules["scrapers.instagram"].generate_hashtags = sys.modules[
+            "scrapers.hashtag_generator"
+        ].generate_hashtags
+        from scrapers.instagram import scrape_hashtag
+
+        posts = await scrape_hashtag("test", limit=10, max_age_days=10)
+        assert len(posts) == 1
+        assert posts[0]["post_url"] == "https://www.instagram.com/p/NEW/"
 
 
 async def test_scrape_post_likes_returns_integer() -> None:

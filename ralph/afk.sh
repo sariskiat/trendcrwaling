@@ -51,8 +51,12 @@ run_agent() {
   local agent="$1"
   local prompt="$2"
 
-  # Resolve token: prefer explicit env vars, fall back to `gh auth token`
-  local _token="${COPILOT_GITHUB_TOKEN:-${GITHUB_TOKEN:-${GH_TOKEN:-$(gh auth token 2>/dev/null || true)}}}"
+  # Resolve token: prefer explicit COPILOT_GITHUB_TOKEN, then extract from
+  # ~/.config/github-copilot/apps.json (the copilot CLI's own OAuth token —
+  # different app/quota from the gh CLI token returned by `gh auth token`)
+  local _token="${COPILOT_GITHUB_TOKEN:-$(python3 -c \
+    "import json,os; d=json.load(open(os.path.expanduser('~/.config/github-copilot/apps.json'))); print(list(d.values())[0]['oauth_token'])" \
+    2>/dev/null || gh auth token 2>/dev/null || true)}"
 
   local -a args=(
     run --rm
@@ -60,10 +64,6 @@ run_agent() {
     -w /workspace
     -e "COPILOT_GITHUB_TOKEN=${_token}"
   )
-
-  # Mount host GitHub / Copilot auth configs (fallback for interactive auth)
-  [[ -d "$HOME/.config/github-copilot" ]] && \
-    args+=(-v "$HOME/.config/github-copilot:/root/.config/github-copilot:ro")
 
   # Mount .env for scraper secrets — clean whitespace from key names (docker --env-file is strict)
   if [[ -f "$REPO_ROOT/.env" ]]; then
@@ -198,6 +198,16 @@ Print DONE: <issue_file> or FAILED: <reason>."
   IMPL_OUT=$(run_agent "ralph-implementor" "$IMPLEMENTOR_PROMPT" 2>&1) || true
   echo "$IMPL_OUT"
 
+  if echo "$IMPL_OUT" | grep -q "hit your rate limit\|rate limit.*reset\|Rate limit"; then
+    RESET_MSG=$(echo "$IMPL_OUT" | grep -oE 'reset in [^.]+' | head -1 || echo "unknown time")
+    echo ""
+    echo "━━━ RATE LIMITED ━━━"
+    echo "  Implementor hit a Copilot Premium rate limit ($RESET_MSG)."
+    echo "  Pipeline paused — rerun after the quota resets."
+    echo "  Log: ralph-state/pipeline-run.log"
+    exit 2
+  fi
+
   if echo "$IMPL_OUT" | grep -q "^FAILED:"; then
     FAIL_REASON=$(echo "$IMPL_OUT" | grep "^FAILED:" | head -1)
     echo "⚠ Implementor: $FAIL_REASON — skipping review, continuing to next iteration."
@@ -213,17 +223,18 @@ Print DONE: <issue_file> or FAILED: <reason>."
   echo ""
   echo "[ 3/3 ] Reviewer (Claude Sonnet) — /review-protocol + /code-standards..."
 
-  DIFF=$(git -C "$REPO_ROOT" diff HEAD~1...HEAD 2>/dev/null \
-    || git -C "$REPO_ROOT" show --stat HEAD 2>/dev/null \
-    || echo "(no diff available)")
+  # Write diff to a file — avoids ARG_MAX ("argument list too long") when passing large diffs inline
+  DIFF_FILE="$STATE_DIR/diff.txt"
+  git -C "$REPO_ROOT" diff HEAD~1...HEAD > "$DIFF_FILE" 2>/dev/null \
+    || git -C "$REPO_ROOT" show HEAD > "$DIFF_FILE" 2>/dev/null \
+    || echo "(no diff available)" > "$DIFF_FILE"
 
   REVIEWER_PROMPT="# YOUR TASK
 
-Review the git diff below. Apply /review-protocol and /code-standards.
+Review the git diff for this iteration. The diff has been written to the file:
+  /workspace/ralph-state/diff.txt
 
-## Diff
-
-$DIFF
+Read that file first, then apply review-protocol and code-standards checks.
 
 ## Pass 1 — Review Protocol
 
