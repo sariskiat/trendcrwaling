@@ -1,0 +1,33 @@
+# ralph/Dockerfile.agent
+# Isolated container for ralph subagents (supervisor and implementers).
+# Build: docker build -f ralph/Dockerfile.agent -t ralph-agent .
+# The repo is mounted at /workspace at runtime — never baked in.
+
+FROM python:3.12-slim
+
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+# Install GitHub Copilot CLI (standalone binary, not gh extension)
+RUN curl -fsSL "https://github.com/github/gh-copilot/releases/latest/download/gh-copilot-linux-amd64" \
+    -o /usr/local/bin/copilot \
+    && chmod +x /usr/local/bin/copilot \
+    || (echo "WARNING: copilot CLI download failed — will rely on host mount" && true)
+
+# Install Playwright browsers (needed for scraper smoke tests inside container)
+RUN pip install --no-cache-dir playwright && playwright install --with-deps chromium
+
+WORKDIR /workspace
+
+# At runtime the host repo is bind-mounted here.
+# Dependencies are installed fresh each run via uv sync.
+ENTRYPOINT ["bash", "-c", "uv sync --quiet 2>/dev/null; exec \"$@\"", "--"]
+CMD ["bash"]

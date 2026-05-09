@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from datetime import datetime, timedelta
 from typing import TypedDict
 
@@ -70,9 +71,7 @@ def _extract_post(
     as_dict: dict[str, object] = getattr(video, "as_dict", {})
     video_id: str = getattr(video, "id", "")
     # TikTokApi may provide desc on the object or inside as_dict
-    desc: str = str(
-        getattr(video, "desc", None) or as_dict.get("desc", "") or ""
-    )
+    desc: str = str(getattr(video, "desc", None) or as_dict.get("desc", "") or "")
 
     # Extract stats
     stats: dict[str, int] = as_dict.get("stats", {})  # type: ignore[assignment]
@@ -113,6 +112,7 @@ async def scrape_user(
     limit: int = 20,
     days_back: int | None = None,
     timeout: int = _DEFAULT_TIMEOUT,
+    max_age_days: int = 10,
 ) -> list[TikTokApiPost]:
     """Return recent posts from a public TikTok profile using TikTok-Api.
 
@@ -121,9 +121,10 @@ async def scrape_user(
         limit: Max number of posts to return. Must be positive.
         days_back: Only return posts from last N days. None = no filter.
         timeout: Request timeout in seconds (converted to ms internally). Default 300.
+        max_age_days: Only return posts from last N days (recency filter). Default 10.
 
     Returns:
-        List of TikTokApiPost dicts.
+        List of TikTokApiPost dicts (posts ≤ max_age_days old).
 
     Raises:
         ValueError: If limit is not positive.
@@ -143,11 +144,16 @@ async def scrape_user(
     try:
         async with TikTokApi() as api:
             await api.create_sessions(
-                num_sessions=1, sleep_after=3, ms_tokens=[ms_token],
-                timeout=timeout * 1000, headless=False
+                num_sessions=1,
+                sleep_after=3,
+                ms_tokens=[ms_token],
+                timeout=timeout * 1000,
+                headless=False,
             )
             user = api.user(username=username)
-            async for video in user.videos(count=limit * 2):  # Fetch extra for filtering
+            async for video in user.videos(
+                count=limit * 2
+            ):  # Fetch extra for filtering
                 post = _extract_post(video, username, cutoff_ts)
                 if post:
                     posts.append(post)
@@ -160,11 +166,18 @@ async def scrape_user(
             f"Failed to scrape TikTok user '{username}': {exc}"
         ) from exc
 
-    return posts
+    # Apply max_age_days filter before returning
+    now = int(time.time())
+    max_age_seconds = max_age_days * 86400
+    filtered_posts = [p for p in posts if now - p["created_at"] <= max_age_seconds]
+    return filtered_posts
 
 
 async def scrape_trending(
-    limit: int = 20, days_back: int | None = None, timeout: int = _DEFAULT_TIMEOUT
+    limit: int = 20,
+    days_back: int | None = None,
+    timeout: int = _DEFAULT_TIMEOUT,
+    max_age_days: int = 10,
 ) -> list[TikTokApiPost]:
     """Return trending TikTok posts using TikTok-Api.
 
@@ -172,9 +185,10 @@ async def scrape_trending(
         limit: Max number of posts to return. Must be positive.
         days_back: Only return posts from last N days. None = no filter.
         timeout: Request timeout in seconds (converted to ms internally). Default 300.
+        max_age_days: Only return posts from last N days (recency filter). Default 10.
 
     Returns:
-        List of TikTokApiPost dicts.
+        List of TikTokApiPost dicts (posts ≤ max_age_days old).
 
     Raises:
         ValueError: If limit is not positive.
@@ -194,8 +208,11 @@ async def scrape_trending(
     try:
         async with TikTokApi() as api:
             await api.create_sessions(
-                num_sessions=1, sleep_after=3, ms_tokens=[ms_token],
-                timeout=timeout * 1000, headless=False
+                num_sessions=1,
+                sleep_after=3,
+                ms_tokens=[ms_token],
+                timeout=timeout * 1000,
+                headless=False,
             )
             async for video in api.trending.videos(count=limit * 2):
                 post = _extract_post(video, "", cutoff_ts)
@@ -210,11 +227,19 @@ async def scrape_trending(
             f"Failed to scrape trending TikTok videos: {exc}"
         ) from exc
 
-    return posts
+    # Apply max_age_days filter before returning
+    now = int(time.time())
+    max_age_seconds = max_age_days * 86400
+    filtered_posts = [p for p in posts if now - p["created_at"] <= max_age_seconds]
+    return filtered_posts
 
 
 async def scrape_hashtag(
-    tag: str, limit: int = 20, days_back: int | None = None, timeout: int = _DEFAULT_TIMEOUT
+    tag: str,
+    limit: int = 20,
+    days_back: int | None = None,
+    timeout: int = _DEFAULT_TIMEOUT,
+    max_age_days: int = 10,
 ) -> list[TikTokApiPost]:
     """Return TikTok posts for a given hashtag using TikTok-Api.
 
@@ -223,9 +248,10 @@ async def scrape_hashtag(
         limit: Max number of posts to return. Must be positive.
         days_back: Only return posts from last N days. None = no filter.
         timeout: Request timeout in seconds (converted to ms internally). Default 300.
+        max_age_days: Only return posts from last N days (recency filter). Default 10.
 
     Returns:
-        List of TikTokApiPost dicts.
+        List of TikTokApiPost dicts (posts ≤ max_age_days old).
 
     Raises:
         ValueError: If limit is not positive.
@@ -245,8 +271,11 @@ async def scrape_hashtag(
     try:
         async with TikTokApi() as api:
             await api.create_sessions(
-                num_sessions=1, sleep_after=3, ms_tokens=[ms_token],
-                timeout=timeout * 1000, headless=False
+                num_sessions=1,
+                sleep_after=3,
+                ms_tokens=[ms_token],
+                timeout=timeout * 1000,
+                headless=False,
             )
             hashtag = api.hashtag(name=tag)
             async for video in hashtag.videos(count=limit * 2):
@@ -260,4 +289,8 @@ async def scrape_hashtag(
     except Exception as exc:
         raise TikTokApiScraperError(f"Failed to scrape hashtag '{tag}': {exc}") from exc
 
-    return posts
+    # Apply max_age_days filter before returning
+    now = int(time.time())
+    max_age_seconds = max_age_days * 86400
+    filtered_posts = [p for p in posts if now - p["created_at"] <= max_age_seconds]
+    return filtered_posts

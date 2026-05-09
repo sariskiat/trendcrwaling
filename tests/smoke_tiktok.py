@@ -30,14 +30,14 @@ async def _smoke(username: str, limit: int) -> None:
     for i, post in enumerate(posts):
         missing = _REQUIRED_KEYS - set(post.keys())
         assert not missing, f"Post[{i}] missing keys: {missing}"
-        assert isinstance(post["url"], str) and post["url"].startswith(
-            "http"
-        ), f"Post[{i}] bad url: {post['url']}"
+        assert isinstance(post["url"], str) and post["url"].startswith("http"), (
+            f"Post[{i}] bad url: {post['url']}"
+        )
         assert isinstance(post["views"], int), f"Post[{i}] views not int"
         assert isinstance(post["likes"], int), f"Post[{i}] likes not int"
-        assert (
-            isinstance(post["author"], str) and post["author"]
-        ), f"Post[{i}] author empty"
+        assert isinstance(post["author"], str) and post["author"], (
+            f"Post[{i}] author empty"
+        )
 
     print(f"[smoke] PASS — {len(posts)} posts, all shapes valid")
     print(json.dumps(posts[:2], indent=2, ensure_ascii=False))

@@ -9,6 +9,8 @@ Local issue files from `issues/` and the last few git commits are provided at st
 Parse them to understand the backlog and what has already been done.
 
 Work on AFK issues only — skip any issue marked HITL.
+HITL issues are shown for awareness only. Never attempt them.
+Issue classification is pre-done: AFK issues are labelled `## Type: AFK`, HITL issues are labelled `## Type: HITL`.
 
 If all AFK tasks are complete, output exactly: `<promise>NO MORE TASKS</promise>`
 
@@ -35,7 +37,28 @@ This brief is what you hand to Haiku. Be specific — Haiku has no context beyon
 
 ## 3. DISPATCH HAIKU
 
-Use the Agent tool with `model: "haiku"` to spawn an implementer subagent.
+Each Haiku implementer runs in its own isolated Docker container so it cannot affect other concurrent runs or the host environment.
+
+To spawn an implementer, run this shell command (do not use the Agent tool directly):
+
+```bash
+docker run --rm \
+  --name "ralph-haiku-$(date +%s)" \
+  -v "$(git rev-parse --show-toplevel):/workspace" \
+  -v "$HOME/.config/github-copilot:/root/.config/github-copilot:ro" \
+  -v "$HOME/.gitconfig:/root/.gitconfig:ro" \
+  -e OPENAI_API_KEY="$OPENAI_API_KEY" \
+  -e TT_COOKIES_FILE="$TT_COOKIES_FILE" \
+  -e IG_COOKIES_FILE="$IG_COOKIES_FILE" \
+  -e FB_COOKIES_FILE="$FB_COOKIES_FILE" \
+  -w /workspace \
+  ralph-agent \
+  bash -c 'copilot --agent ralph-implementer --allow-all-tools --model claude-haiku-4.5 -p "BRIEF:\n<brief>"'
+```
+
+Replace `<brief>` with the full brief from step 2. Capture stdout as the drip.
+
+If Docker is unavailable, fall back to the Agent tool with `model: "claude-haiku-4.5"` and note the fallback in the commit message.
 
 Include in the prompt to Haiku:
 - The brief from step 2 (files, interface, first test)
@@ -68,6 +91,19 @@ Make the git commit yourself. Message must include:
 
 Move the issue file to `issues/done/`.
 
+## 5b. VERIFY — Fire a real query
+
+After committing, run a real end-to-end smoke call against the feature just shipped.
+Use `uv run python -c "..."` or `uv run pytest tests/smoke_*.py -x -q` targeting only the new code.
+
+Interpret the result:
+- **Pass** (returns data, no exception): proceed to LOOP.
+- **Blocked** (bot detection, HTTP 429, auth failure, `playwright._impl._errors.Error`, `TikTokApiException`, `LoginRequired`, etc.):
+  1. Determine whether the block is fixable by code (AFK) or requires human credentials / account action (HITL).
+  2. Create a new issue file `issues/ISSUE-<next_number>-<slug>.md` with the correct `## Type` (`AFK` or `HITL`), a description of the blocker, and concrete acceptance criteria.
+  3. Do NOT retry or loop on the same blocked call.
+  4. Proceed to LOOP — the new issue will be picked up in a future iteration.
+
 ## 6. LOOP
 
 Return to SELECT. Continue until no AFK issues remain.
@@ -78,4 +114,6 @@ Return to SELECT. Continue until no AFK issues remain.
 - Never write implementation code yourself.
 - Never accept a Haiku result with red quality gates.
 - Never mark an issue complete if tests are failing.
+- Never retry a blocked real-query call more than once — create a new issue instead.
+- Always classify new blocker issues correctly as AFK or HITL before saving them.
 - ONLY WORK ON A SINGLE TASK PER LOOP ITERATION.

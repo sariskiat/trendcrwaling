@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -238,6 +239,7 @@ async def test_tiktok_user_posts_api_success() -> None:
             thumbnail_url="https://img.jpg",
             author="testuser",
             source="tiktok-api",
+            created_at=int(time.time()) - (1 * 86400),
         )
     ]
     with patch(
@@ -425,6 +427,7 @@ async def test_tiktok_trending_api_success() -> None:
             thumbnail_url="https://img.jpg",
             author="trendinguser1",
             source="tiktok-api",
+            created_at=int(time.time()) - (1 * 86400),
         )
     ]
     with patch(
@@ -509,6 +512,7 @@ async def test_tiktok_hashtag_api_success() -> None:
             thumbnail_url="https://img.jpg",
             author="hashtaguser1",
             source="tiktok-api",
+            created_at=int(time.time()) - (1 * 86400),
         )
     ]
     with patch(
@@ -911,6 +915,6 @@ def test_analyze_image_docstring_lists_correct_exceptions() -> None:
     raises_section = (
         docstring.split("Raises:")[1].split("\n\n")[0] if "Raises:" in docstring else ""
     )
-    assert (
-        "ValueError:" not in raises_section
-    ), "Raises section should not list ValueError as exception type"
+    assert "ValueError:" not in raises_section, (
+        "Raises section should not list ValueError as exception type"
+    )

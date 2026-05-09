@@ -18,9 +18,7 @@ __all__ = [
 ]
 
 _API_TOKEN_ENV: str = "APIFY_TOKEN"
-_BASE_URL: str = (
-    "https://api.apify.com/v2/acts/clockworks~tiktok-profile-scraper/run-sync-get-dataset-items"
-)
+_BASE_URL: str = "https://api.apify.com/v2/acts/clockworks~tiktok-profile-scraper/run-sync-get-dataset-items"
 
 
 class ApifyTikTokPost(TypedDict):
