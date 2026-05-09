@@ -210,3 +210,47 @@ def test_post_link_selector_includes_reels() -> None:
     from scrapers.instagram import _POST_LINK_SELECTOR
 
     assert "/reel/" in _POST_LINK_SELECTOR
+
+
+# ── ISSUE-046: detail-page likes ──────────────────────────────────────────────
+from scrapers.instagram import _enrich_posts_with_likes, _scrape_post_likes  # noqa: E402
+
+
+async def test_scrape_post_likes_returns_integer() -> None:
+    mock_ctx = MagicMock()
+    mock_page = AsyncMock()
+    mock_page.goto = AsyncMock()
+    mock_page.wait_for_selector = AsyncMock()
+    mock_page.inner_text = AsyncMock(return_value="1,234 likes")
+    mock_ctx.new_page = AsyncMock(return_value=mock_page)
+
+    result = await _scrape_post_likes(mock_ctx, "https://www.instagram.com/p/abc123/")
+    assert result == 1234
+
+
+async def test_scrape_post_likes_returns_zero_on_failure() -> None:
+    mock_ctx = MagicMock()
+    mock_page = AsyncMock()
+    mock_page.goto = AsyncMock(side_effect=Exception("not found"))
+    mock_ctx.new_page = AsyncMock(return_value=mock_page)
+
+    result = await _scrape_post_likes(mock_ctx, "https://www.instagram.com/p/abc123/")
+    assert result == 0
+
+
+async def test_enrich_posts_with_likes() -> None:
+    posts = [
+        {"post_url": "https://www.instagram.com/p/A/", "likes": 0},
+        {"post_url": "https://www.instagram.com/p/B/", "likes": 0},
+    ]
+
+    mock_ctx = MagicMock()
+
+    async def fake_likes(ctx: object, url: str) -> int:
+        return 42 if "A" in url else 99
+
+    with patch("scrapers.instagram._scrape_post_likes", side_effect=fake_likes):
+        result = await _enrich_posts_with_likes(mock_ctx, posts)
+
+    assert result[0]["likes"] == 42
+    assert result[1]["likes"] == 99

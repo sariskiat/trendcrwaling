@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
+import re
 from http.cookiejar import MozillaCookieJar
 from typing import TypedDict
 
@@ -20,6 +22,8 @@ from playwright.async_api import (
 __all__ = [
     "InstagramPost",
     "InstagramScraperError",
+    "_enrich_posts_with_likes",
+    "_scrape_post_likes",
     "_shortcode_to_timestamp",
     "scrape_user",
 ]
@@ -102,6 +106,56 @@ def _extract_shortcode(post_url: str) -> str:
             after = post_url.split(prefix, 1)[1]
             return after.split("/")[0]
     return ""
+
+
+_LIKES_SELECTOR = "section span"
+_LIKES_SEMAPHORE_LIMIT = 5
+
+
+async def _scrape_post_likes(ctx: BrowserContext, post_url: str) -> int:
+    """Navigate to a post detail page and extract the like count.
+
+    Args:
+        ctx: An active Playwright BrowserContext.
+        post_url: Full URL to the Instagram post.
+
+    Returns:
+        Like count as integer, or 0 if not found or parse fails.
+    """
+    pg: Page = await ctx.new_page()
+    try:
+        await pg.goto(post_url, wait_until="domcontentloaded", timeout=30000)
+        await pg.wait_for_selector(_LIKES_SELECTOR, timeout=10000)
+        text: str = await pg.inner_text(_LIKES_SELECTOR)
+        digits = re.sub(r"[^\d]", "", text.split(" ")[0])
+        return int(digits) if digits else 0
+    except Exception:
+        return 0
+    finally:
+        await pg.close()
+
+
+async def _enrich_posts_with_likes(
+    ctx: BrowserContext,
+    posts: list[dict],  # type: ignore[type-arg]
+) -> list[dict]:  # type: ignore[type-arg]
+    """Fetch like counts for each post concurrently (up to 5 at a time).
+
+    Args:
+        ctx: An active Playwright BrowserContext.
+        posts: List of post dicts with at least a 'post_url' key.
+
+    Returns:
+        Same list with 'likes' field updated.
+    """
+    sem = asyncio.Semaphore(_LIKES_SEMAPHORE_LIMIT)
+
+    async def _fetch(post: dict) -> dict:  # type: ignore[type-arg]
+        async with sem:
+            post["likes"] = await _scrape_post_likes(ctx, post.get("post_url", ""))
+            return post
+
+    return list(await asyncio.gather(*(_fetch(p) for p in posts)))
 
 
 def _cookie_file() -> str | None:
