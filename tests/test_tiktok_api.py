@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from contextlib import AbstractContextManager
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -58,6 +59,7 @@ def _patch_tiktok_api(mock_api: MagicMock) -> AbstractContextManager[MagicMock]:
 
 async def test_scrape_user_returns_posts_with_source() -> None:
     """scrape_user returns TikTokApiPost with all fields including source provenance."""
+    now = int(time.time())
     fake_videos: list[dict[str, Any]] = [
         {
             "id": "7234567890",
@@ -66,6 +68,7 @@ async def test_scrape_user_returns_posts_with_source() -> None:
                 "video": {"playAddr": "https://video.tiktok.com/123.mp4"},
                 "author": {"uniqueId": "testuser"},
                 "stats": {"playCount": 10000, "diggCount": 500},
+                "createTime": now - (1 * 86400),  # 1 day old
             },
         }
     ]
@@ -96,6 +99,7 @@ async def test_scrape_user_raises_configuration_error_without_token() -> None:
 
 async def test_scrape_user_respects_limit() -> None:
     """scrape_user respects the limit parameter."""
+    now = int(time.time())
     fake_videos: list[dict[str, Any]] = [
         {
             "id": f"{i}",
@@ -104,6 +108,7 @@ async def test_scrape_user_respects_limit() -> None:
                 "video": {"playAddr": f"https://video.tiktok.com/{i}.mp4"},
                 "author": {"uniqueId": "testuser"},
                 "stats": {"playCount": i * 1000, "diggCount": i * 10},
+                "createTime": now - (1 * 86400),  # 1 day old
             },
         }
         for i in range(5)
@@ -152,6 +157,7 @@ async def test_scrape_user_passes_ms_token_to_sessions() -> None:
 
 async def test_scrape_user_generates_correct_url() -> None:
     """scrape_user generates correct TikTok URL from video id and author."""
+    now = int(time.time())
     fake_videos: list[dict[str, Any]] = [
         {
             "id": "999888777",
@@ -160,6 +166,7 @@ async def test_scrape_user_generates_correct_url() -> None:
                 "video": {"playAddr": "https://video.tiktok.com/999.mp4"},
                 "author": {"uniqueId": "sukiyaki_lover"},
                 "stats": {"playCount": 100, "diggCount": 5},
+                "createTime": now - (1 * 86400),  # 1 day old
             },
         }
     ]
@@ -174,6 +181,7 @@ async def test_scrape_user_generates_correct_url() -> None:
 
 async def test_scrape_user_handles_missing_thumbnail() -> None:
     """scrape_user handles missing thumbnail gracefully with empty string."""
+    now = int(time.time())
     fake_videos: list[dict[str, Any]] = [
         {
             "id": "123",
@@ -182,6 +190,7 @@ async def test_scrape_user_handles_missing_thumbnail() -> None:
                 "video": {},  # No playAddr
                 "author": {"uniqueId": "testuser"},
                 "stats": {"playCount": 100, "diggCount": 5},
+                "createTime": now - (1 * 86400),  # 1 day old
             },
         }
     ]
@@ -263,6 +272,7 @@ def _make_hashtag_mocks(
 
 async def test_scrape_trending_returns_posts_with_source() -> None:
     """scrape_trending returns TikTokApiPost with all fields including source provenance."""
+    now = int(time.time())
     fake_videos: list[dict[str, Any]] = [
         {
             "id": "7234567890",
@@ -271,6 +281,7 @@ async def test_scrape_trending_returns_posts_with_source() -> None:
                 "video": {"playAddr": "https://video.tiktok.com/123.mp4"},
                 "author": {"uniqueId": "trendinguser"},
                 "stats": {"playCount": 50000, "diggCount": 2000},
+                "createTime": now - (1 * 86400),  # 1 day old
             },
         }
     ]
@@ -301,6 +312,7 @@ async def test_scrape_trending_raises_configuration_error_without_token() -> Non
 
 async def test_scrape_trending_respects_limit() -> None:
     """scrape_trending respects the limit parameter."""
+    now = int(time.time())
     fake_videos: list[dict[str, Any]] = [
         {
             "id": f"{i}",
@@ -309,6 +321,7 @@ async def test_scrape_trending_respects_limit() -> None:
                 "video": {"playAddr": f"https://video.tiktok.com/{i}.mp4"},
                 "author": {"uniqueId": "trendinguser"},
                 "stats": {"playCount": i * 1000, "diggCount": i * 10},
+                "createTime": now - (1 * 86400),  # 1 day old
             },
         }
         for i in range(5)
@@ -349,6 +362,7 @@ async def test_scrape_trending_wraps_library_errors() -> None:
 
 async def test_scrape_hashtag_returns_posts_with_source() -> None:
     """scrape_hashtag returns TikTokApiPost with all fields including source provenance."""
+    now = int(time.time())
     fake_videos: list[dict[str, Any]] = [
         {
             "id": "7234567890",
@@ -357,6 +371,7 @@ async def test_scrape_hashtag_returns_posts_with_source() -> None:
                 "video": {"playAddr": "https://video.tiktok.com/123.mp4"},
                 "author": {"uniqueId": "hashtaguser"},
                 "stats": {"playCount": 30000, "diggCount": 1500},
+                "createTime": now - (1 * 86400),  # 1 day old
             },
         }
     ]
@@ -387,6 +402,7 @@ async def test_scrape_hashtag_raises_configuration_error_without_token() -> None
 
 async def test_scrape_hashtag_respects_limit() -> None:
     """scrape_hashtag respects the limit parameter."""
+    now = int(time.time())
     fake_videos: list[dict[str, Any]] = [
         {
             "id": f"{i}",
@@ -395,6 +411,7 @@ async def test_scrape_hashtag_respects_limit() -> None:
                 "video": {"playAddr": f"https://video.tiktok.com/{i}.mp4"},
                 "author": {"uniqueId": "hashtaguser"},
                 "stats": {"playCount": i * 1000, "diggCount": i * 10},
+                "createTime": now - (1 * 86400),  # 1 day old
             },
         }
         for i in range(5)
@@ -426,3 +443,108 @@ async def test_scrape_hashtag_wraps_library_errors() -> None:
         with _patch_tiktok_api(mock_api):
             with pytest.raises(TikTokApiScraperError, match="Failed to scrape hashtag"):
                 await scrape_hashtag("dance", limit=5)
+
+
+# ============== max_age_days filtering tests ==============
+
+
+async def test_scrape_user_filters_old_posts() -> None:
+    """scrape_user drops posts older than max_age_days."""
+    now = int(time.time())
+    old_post = {
+        "id": "old123",
+        "desc": "Old post",
+        "as_dict": {
+            "video": {"cover": "https://..."},
+            "author": {"uniqueId": "testuser"},
+            "stats": {"playCount": 100, "diggCount": 5},
+            "createTime": now - (90 * 86400),  # 90 days old
+        },
+    }
+    recent_post = {
+        "id": "recent456",
+        "desc": "Recent post",
+        "as_dict": {
+            "video": {"cover": "https://..."},
+            "author": {"uniqueId": "testuser"},
+            "stats": {"playCount": 1000, "diggCount": 50},
+            "createTime": now - (3 * 86400),  # 3 days old
+        },
+    }
+    mock_api, _, _ = _make_api_mocks(videos=[old_post, recent_post])
+
+    with patch.dict(os.environ, {"TT_MS_TOKEN": "test-token"}):
+        with _patch_tiktok_api(mock_api):
+            result = await scrape_user("testuser", limit=10, max_age_days=10)
+
+    # Only recent post should be returned (3 days old < 10 day filter)
+    assert len(result) == 1
+    assert result[0]["created_at"] == now - (3 * 86400)
+
+
+async def test_scrape_trending_filters_old_posts() -> None:
+    """scrape_trending drops posts older than max_age_days."""
+    now = int(time.time())
+    old_post = {
+        "id": "old789",
+        "desc": "Old trending post",
+        "as_dict": {
+            "video": {"cover": "https://..."},
+            "author": {"uniqueId": "trendinguser"},
+            "stats": {"playCount": 100, "diggCount": 5},
+            "createTime": now - (90 * 86400),  # 90 days old
+        },
+    }
+    recent_post = {
+        "id": "recent999",
+        "desc": "Recent trending post",
+        "as_dict": {
+            "video": {"cover": "https://..."},
+            "author": {"uniqueId": "trendinguser"},
+            "stats": {"playCount": 50000, "diggCount": 2000},
+            "createTime": now - (2 * 86400),  # 2 days old
+        },
+    }
+    mock_api, _ = _make_trending_mocks(videos=[old_post, recent_post])
+
+    with patch.dict(os.environ, {"TT_MS_TOKEN": "test-token"}):
+        with _patch_tiktok_api(mock_api):
+            result = await scrape_trending(limit=10, max_age_days=10)
+
+    # Only recent post should be returned (2 days old < 10 day filter)
+    assert len(result) == 1
+    assert result[0]["created_at"] == now - (2 * 86400)
+
+
+async def test_scrape_hashtag_filters_old_posts() -> None:
+    """scrape_hashtag drops posts older than max_age_days."""
+    now = int(time.time())
+    old_post = {
+        "id": "old555",
+        "desc": "Old hashtag post",
+        "as_dict": {
+            "video": {"cover": "https://..."},
+            "author": {"uniqueId": "hashtaguser"},
+            "stats": {"playCount": 100, "diggCount": 5},
+            "createTime": now - (90 * 86400),  # 90 days old
+        },
+    }
+    recent_post = {
+        "id": "recent666",
+        "desc": "Recent hashtag post",
+        "as_dict": {
+            "video": {"cover": "https://..."},
+            "author": {"uniqueId": "hashtaguser"},
+            "stats": {"playCount": 30000, "diggCount": 1500},
+            "createTime": now - (5 * 86400),  # 5 days old
+        },
+    }
+    mock_api, _, _ = _make_hashtag_mocks(videos=[old_post, recent_post])
+
+    with patch.dict(os.environ, {"TT_MS_TOKEN": "test-token"}):
+        with _patch_tiktok_api(mock_api):
+            result = await scrape_hashtag("dance", limit=10, max_age_days=10)
+
+    # Only recent post should be returned (5 days old < 10 day filter)
+    assert len(result) == 1
+    assert result[0]["created_at"] == now - (5 * 86400)
