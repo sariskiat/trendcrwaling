@@ -143,7 +143,8 @@ async def scrape_user(
     try:
         async with TikTokApi() as api:
             await api.create_sessions(
-                num_sessions=1, sleep_after=3, ms_tokens=[ms_token], timeout=timeout * 1000
+                num_sessions=1, sleep_after=3, ms_tokens=[ms_token],
+                timeout=timeout * 1000, headless=False
             )
             user = api.user(username=username)
             async for video in user.videos(count=limit * 2):  # Fetch extra for filtering
@@ -193,7 +194,8 @@ async def scrape_trending(
     try:
         async with TikTokApi() as api:
             await api.create_sessions(
-                num_sessions=1, sleep_after=3, ms_tokens=[ms_token], timeout=timeout * 1000
+                num_sessions=1, sleep_after=3, ms_tokens=[ms_token],
+                timeout=timeout * 1000, headless=False
             )
             async for video in api.trending.videos(count=limit * 2):
                 post = _extract_post(video, "", cutoff_ts)
@@ -243,7 +245,8 @@ async def scrape_hashtag(
     try:
         async with TikTokApi() as api:
             await api.create_sessions(
-                num_sessions=1, sleep_after=3, ms_tokens=[ms_token], timeout=timeout * 1000
+                num_sessions=1, sleep_after=3, ms_tokens=[ms_token],
+                timeout=timeout * 1000, headless=False
             )
             hashtag = api.hashtag(name=tag)
             async for video in hashtag.videos(count=limit * 2):
