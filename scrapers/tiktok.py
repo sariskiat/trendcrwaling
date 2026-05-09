@@ -26,6 +26,7 @@ __all__ = [
 ]
 
 _COOKIE_ENV: str = "TT_COOKIES_FILE"
+_HEADLESS_ENV: str = "TT_HEADLESS"  # Set to "false" to run with visible browser
 _POST_SELECTOR: str = '[data-e2e="user-post-item"]'
 _USER_AGENT: str = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -53,6 +54,12 @@ def _cookie_file() -> str | None:
     """Return path to cookies.txt from TT_COOKIES_FILE env var, or None."""
     path: str = os.getenv(_COOKIE_ENV, "")
     return path if path else None
+
+
+def _is_headless() -> bool:
+    """Return True if headless mode is enabled (default), False for visible browser."""
+    val: str = os.getenv(_HEADLESS_ENV, "true").lower()
+    return val not in ("false", "0", "no")
 
 
 def _load_cookies(path: str) -> list[SetCookieParam]:
@@ -92,7 +99,7 @@ async def _setup_browser(
     Returns:
         Tuple of (browser, page) ready for content extraction.
     """
-    browser: Browser = await pw.chromium.launch(headless=True)
+    browser: Browser = await pw.chromium.launch(headless=_is_headless())
     ctx: BrowserContext = await browser.new_context(
         user_agent=_USER_AGENT,
         viewport={"width": 1280, "height": 900},
