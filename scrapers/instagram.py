@@ -17,10 +17,15 @@ from playwright.async_api import (
     async_playwright,
 )
 
-__all__ = ["InstagramPost", "InstagramScraperError", "scrape_user"]
+__all__ = [
+    "InstagramPost",
+    "InstagramScraperError",
+    "_shortcode_to_timestamp",
+    "scrape_user",
+]
 
 _COOKIE_ENV: str = "IG_COOKIES_FILE"
-_POST_LINK_SELECTOR: str = "a[href*='/p/']"
+_POST_LINK_SELECTOR: str = "a[href*='/p/'], a[href*='/reel/']"
 _USER_AGENT: str = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -47,10 +52,56 @@ class InstagramPost(TypedDict):
     caption: str
     likes: int
     post_url: str
+    created_at: int  # Unix timestamp; 0 if not decodable
 
 
 class InstagramScraperError(Exception):
     """Raised when Instagram scraping fails due to network or access errors."""
+
+
+_BASE64URL_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+_INSTAGRAM_EPOCH = 1314220021
+
+
+def _shortcode_to_timestamp(shortcode: str) -> int:
+    """Decode an Instagram shortcode to a Unix timestamp.
+
+    Uses base62 decode → right-shift 23 bits → add Instagram epoch.
+
+    Args:
+        shortcode: The shortcode portion of an Instagram post URL
+            (e.g. "CnvGmGiLTcD" from /p/CnvGmGiLTcD/).
+
+    Returns:
+        Unix timestamp (int), or 0 if decode fails.
+    """
+    if not shortcode:
+        return 0
+    try:
+        num = 0
+        for char in shortcode:
+            idx = _BASE64URL_CHARS.index(char)
+            num = num * 64 + idx
+        # Instagram IDs store timestamp in ms: (id >> 23) gives ms since epoch
+        return int((num >> 23) / 1000 + _INSTAGRAM_EPOCH)
+    except (ValueError, OverflowError):
+        return 0
+
+
+def _extract_shortcode(post_url: str) -> str:
+    """Extract shortcode from an Instagram post or reel URL.
+
+    Args:
+        post_url: Full post URL like https://www.instagram.com/p/ABC123/ or /reel/...
+
+    Returns:
+        Shortcode string, or empty string if not found.
+    """
+    for prefix in ("/p/", "/reel/"):
+        if prefix in post_url:
+            after = post_url.split(prefix, 1)[1]
+            return after.split("/")[0]
+    return ""
 
 
 def _cookie_file() -> str | None:
@@ -157,6 +208,9 @@ async def scrape_user(username: str, limit: int = 20) -> list[InstagramPost]:
                         caption=entry.get("caption", ""),
                         likes=0,
                         post_url=entry.get("post_url", ""),
+                        created_at=_shortcode_to_timestamp(
+                            _extract_shortcode(entry.get("post_url", ""))
+                        ),
                     )
                     for entry in raw[:limit]
                 ]

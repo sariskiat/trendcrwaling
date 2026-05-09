@@ -8,7 +8,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from scrapers.instagram import InstagramPost, InstagramScraperError, scrape_user
+from scrapers.instagram import (
+    InstagramPost,
+    InstagramScraperError,
+    _shortcode_to_timestamp,
+    scrape_user,
+)
 
 
 def _make_pw_mocks(
@@ -160,3 +165,48 @@ async def test_scrape_user_closes_browser_on_exception() -> None:
                 await scrape_user("mk.suki.official", limit=5)
 
     mock_browser.close.assert_called_once()
+
+
+def test_shortcode_to_timestamp_known_value() -> None:
+    ts = _shortcode_to_timestamp("CnvGmGiLTcD")
+    # This post is from early 2023
+    assert 1672531200 < ts < 1704067200  # 2023-01-01 to 2024-01-01
+
+
+def test_shortcode_to_timestamp_returns_zero_on_invalid() -> None:
+    assert _shortcode_to_timestamp("") == 0
+
+
+async def test_scrape_user_result_has_created_at() -> None:
+    fake_posts: list[dict[str, str]] = [
+        {
+            "post_url": "https://www.instagram.com/p/CnvGmGiLTcD/",
+            "url": "https://cdn.instagram.com/img/abc.jpg",
+            "caption": "test",
+        }
+    ]
+    mock_pw, _, _, _ = _make_pw_mocks(evaluate_posts=fake_posts)
+
+    with _patch_pw(mock_pw):
+        result: list[InstagramPost] = await scrape_user("mk.suki.official", limit=1)
+
+    assert "created_at" in result[0]
+    assert result[0]["created_at"] > 0
+
+
+async def test_scrape_user_created_at_zero_for_malformed_url() -> None:
+    fake_posts: list[dict[str, str]] = [
+        {"post_url": "https://www.instagram.com/", "url": "", "caption": ""}
+    ]
+    mock_pw, _, _, _ = _make_pw_mocks(evaluate_posts=fake_posts)
+
+    with _patch_pw(mock_pw):
+        result: list[InstagramPost] = await scrape_user("mk.suki.official", limit=1)
+
+    assert result[0]["created_at"] == 0
+
+
+def test_post_link_selector_includes_reels() -> None:
+    from scrapers.instagram import _POST_LINK_SELECTOR
+
+    assert "/reel/" in _POST_LINK_SELECTOR
