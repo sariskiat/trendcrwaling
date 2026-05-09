@@ -146,7 +146,7 @@ async def tiktok_hashtag_posts(tag: str, limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_user_posts_api(
-    username: str, limit: int = 20, days_back: int | None = None
+    username: str, limit: int = 20, days_back: int | None = None, timeout: int = 300
 ) -> str:
     """Scrape TikTok posts for a user using TikTok-Api library (free, unofficial).
 
@@ -159,12 +159,13 @@ async def tiktok_user_posts_api(
         username: TikTok handle without @.
         limit: Max number of posts to return.
         days_back: Only return posts from last N days. None = no filter.
+        timeout: Request timeout in seconds. Default 300 (5 minutes).
     """
     _validate_handle(username, "username")
     _validate_limit(limit)
 
     posts: list[TikTokApiPost] = await _scrape_tiktok_api_user(
-        username, limit, days_back
+        username, limit, days_back, timeout
     )
     return json.dumps(posts, ensure_ascii=False, indent=2)
 
@@ -203,7 +204,7 @@ async def tiktok_user_posts_apify(username: str, limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_trending_api(
-    limit: int = 20, days_back: int | None = None
+    limit: int = 20, days_back: int | None = None, timeout: int = 300
 ) -> str:
     """Scrape trending TikTok posts using TikTok-Api library (free, unofficial).
 
@@ -215,10 +216,11 @@ async def tiktok_trending_api(
     Args:
         limit: Max number of posts to return.
         days_back: Only return posts from last N days. None = no filter.
+        timeout: Request timeout in seconds. Default 300 (5 minutes).
     """
     _validate_limit(limit)
 
-    posts: list[TikTokApiPost] = await _scrape_tiktok_api_trending(limit, days_back)
+    posts: list[TikTokApiPost] = await _scrape_tiktok_api_trending(limit, days_back, timeout)
     return json.dumps(posts, ensure_ascii=False, indent=2)
 
 
@@ -260,7 +262,7 @@ async def tiktok_trending_apify(limit: int = 20) -> str:
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_hashtag_api(
-    tag: str, limit: int = 20, days_back: int | None = None
+    tag: str, limit: int = 20, days_back: int | None = None, timeout: int = 300
 ) -> str:
     """Scrape TikTok posts for a hashtag using TikTok-Api library (free, unofficial).
 
@@ -273,12 +275,13 @@ async def tiktok_hashtag_api(
         tag: Hashtag to search for (without #).
         limit: Max number of posts to return.
         days_back: Only return posts from last N days. None = no filter.
+        timeout: Request timeout in seconds. Default 300 (5 minutes).
     """
     _validate_handle(tag, "tag")
     _validate_limit(limit)
 
     posts: list[TikTokApiPost] = await _scrape_tiktok_api_hashtag(
-        tag, limit, days_back
+        tag, limit, days_back, timeout
     )
     return json.dumps(posts, ensure_ascii=False, indent=2)
 

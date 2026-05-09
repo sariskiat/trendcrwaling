@@ -19,6 +19,7 @@ __all__ = [
 ]
 
 _MS_TOKEN_ENV: str = "TT_MS_TOKEN"
+_DEFAULT_TIMEOUT: int = 300  # 5 minutes
 
 
 class TikTokApiPost(TypedDict):
@@ -105,7 +106,10 @@ def _extract_post(
 
 
 async def scrape_user(
-    username: str, limit: int = 20, days_back: int | None = None
+    username: str,
+    limit: int = 20,
+    days_back: int | None = None,
+    timeout: int = _DEFAULT_TIMEOUT,
 ) -> list[TikTokApiPost]:
     """Return recent posts from a public TikTok profile using TikTok-Api.
 
@@ -113,6 +117,7 @@ async def scrape_user(
         username: TikTok handle without @.
         limit: Max number of posts to return. Must be positive.
         days_back: Only return posts from last N days. None = no filter.
+        timeout: Request timeout in seconds. Default 300 (5 minutes).
 
     Returns:
         List of TikTokApiPost dicts.
@@ -135,7 +140,7 @@ async def scrape_user(
     try:
         async with TikTokApi() as api:
             await api.create_sessions(
-                num_sessions=1, sleep_after=3, ms_tokens=[ms_token]
+                num_sessions=1, sleep_after=3, ms_tokens=[ms_token], timeout=timeout
             )
             user = api.user(username=username)
             async for video in user.videos(count=limit * 2):  # Fetch extra for filtering
@@ -155,13 +160,14 @@ async def scrape_user(
 
 
 async def scrape_trending(
-    limit: int = 20, days_back: int | None = None
+    limit: int = 20, days_back: int | None = None, timeout: int = _DEFAULT_TIMEOUT
 ) -> list[TikTokApiPost]:
     """Return trending TikTok posts using TikTok-Api.
 
     Args:
         limit: Max number of posts to return. Must be positive.
         days_back: Only return posts from last N days. None = no filter.
+        timeout: Request timeout in seconds. Default 300 (5 minutes).
 
     Returns:
         List of TikTokApiPost dicts.
@@ -184,7 +190,7 @@ async def scrape_trending(
     try:
         async with TikTokApi() as api:
             await api.create_sessions(
-                num_sessions=1, sleep_after=3, ms_tokens=[ms_token]
+                num_sessions=1, sleep_after=3, ms_tokens=[ms_token], timeout=timeout
             )
             async for video in api.trending.videos(count=limit * 2):
                 post = _extract_post(video, "", cutoff_ts)
@@ -203,7 +209,7 @@ async def scrape_trending(
 
 
 async def scrape_hashtag(
-    tag: str, limit: int = 20, days_back: int | None = None
+    tag: str, limit: int = 20, days_back: int | None = None, timeout: int = _DEFAULT_TIMEOUT
 ) -> list[TikTokApiPost]:
     """Return TikTok posts for a given hashtag using TikTok-Api.
 
@@ -211,6 +217,7 @@ async def scrape_hashtag(
         tag: Hashtag to search for (without #).
         limit: Max number of posts to return. Must be positive.
         days_back: Only return posts from last N days. None = no filter.
+        timeout: Request timeout in seconds. Default 300 (5 minutes).
 
     Returns:
         List of TikTokApiPost dicts.
@@ -233,7 +240,7 @@ async def scrape_hashtag(
     try:
         async with TikTokApi() as api:
             await api.create_sessions(
-                num_sessions=1, sleep_after=3, ms_tokens=[ms_token]
+                num_sessions=1, sleep_after=3, ms_tokens=[ms_token], timeout=timeout
             )
             hashtag = api.hashtag(name=tag)
             async for video in hashtag.videos(count=limit * 2):
