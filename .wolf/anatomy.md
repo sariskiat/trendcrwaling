@@ -1,7 +1,7 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-05-07T18:19:22.401Z
-> Files: 69 tracked | Anatomy hits: 0 | Misses: 0
+> Auto-maintained by OpenWolf. Last scanned: 2026-05-09T08:15:36.564Z
+> Files: 83 tracked | Anatomy hits: 0 | Misses: 0
 
 ## ../../.claude/
 
@@ -10,8 +10,8 @@
 ## ./
 
 - `.coverage` (~14199 tok)
-- `.gitignore` — Git ignore rules (~48 tok)
-- `.mcp.json` (~59 tok)
+- `.gitignore` — Git ignore rules (~82 tok)
+- `.mcp.json` (~98 tok)
 - `.python-version` (~2 tok)
 - `CLAUDE.md` — OpenWolf (~120 tok)
 - `fb_cookies.txt` — Netscape HTTP Cookie File (~189 tok)
@@ -19,7 +19,7 @@
 - `main.py` — main (~26 tok)
 - `pyproject.toml` — Add your description here (~119 tok)
 - `pyrightconfig.json` (~28 tok)
-- `README.md` — Project documentation (~0 tok)
+- `README.md` — Project documentation (~908 tok)
 - `STATUS.md` — Project Status (~405 tok)
 
 ## .claude/
@@ -65,6 +65,7 @@
 - `prd-playwright-facebook-scraper.md` — PRD — Replace facebook-scraper with Playwright (~761 tok)
 - `prd-playwright-instagram-scraper.md` — PRD — Replace instagrapi with Playwright for Instagram Scraping (~938 tok)
 - `prd-playwright-tiktok-scraper.md` — PRD — Replace tiktokapipy with Playwright for TikTok Scraping (~900 tok)
+- `prd-tiktok-alternatives.md` — PRD — TikTok Scraping Alternatives (~983 tok)
 
 ## issues/
 
@@ -86,23 +87,36 @@
 - `ISSUE-016-playwright-tiktok-scrape-user.md` — [ISSUE-016] Replace tiktokapipy with Playwright for scrape_user + add scrape_tiktok_user MCP tool (~923 tok)
 - `ISSUE-017-tiktok-scrape-trending.md` — [ISSUE-017] Add scrape_trending entry point and scrape_tiktok_trending MCP tool (~500 tok)
 - `ISSUE-018-tiktok-scrape-hashtag.md` — [ISSUE-018] Add scrape_hashtag entry point and scrape_tiktok_hashtag MCP tool (~500 tok)
+- `ISSUE-038-tiktok-api-scraper-tracer-bullet.md` — [ISSUE-038] Implement TikTok-Api scraper (tracer bullet) (~428 tok)
+- `ISSUE-039-tikapi-io-scraper.md` — [ISSUE-039] Implement TikAPI.io scraper (~372 tok)
+- `ISSUE-040-apify-clockworks-scraper.md` — [ISSUE-040] Implement Apify Clockworks scraper (~381 tok)
+- `ISSUE-041-add-trending-hashtag-to-tiktok-scrapers.md` — [ISSUE-041] Add trending and hashtag endpoints to TikTok scrapers (~457 tok)
+- `ISSUE-042-tiktok-source-config-and-docs.md` — [ISSUE-042] Add TIKTOK_SOURCE environment variable and documentation (~349 tok)
 
 ## mcp_server/
 
 - `__init__.py` — MCP server exposing Sukishi trend research tools. (~16 tok)
-- `server.py` — MCP stdio server exposing analyze_competitor to Claude. (~1633 tok)
+- `server.py` — MCP stdio server using FastMCP decorator pattern. (~4039 tok)
 
 ## prompts/
 
 - `ralph.md` — Ralph — AFK Implementation Agent (~1002 tok)
 - `reviewer.md` — Reviewer — Code Review Agent (~964 tok)
 
+## ralph/
+
+- `afk.sh` — ralph/afk.sh — looped AFK run with parallel Opus reviewers each iteration (~604 tok)
+- `once.sh` — ralph/once.sh — single AFK run (Sonnet supervisor + Haiku implementer) (~208 tok)
+
 ## scrapers/
 
 - `__init__.py` — Public scraper interface — one function per platform. (~132 tok)
 - `facebook.py` — Facebook scraper using Playwright headless browser. No API key required. (~1632 tok)
 - `instagram.py` — Instagram scraper using Playwright headless browser. No API key required. (~1503 tok)
-- `tiktok.py` — TikTok scraper using Playwright headless browser. No API key required. (~1622 tok)
+- `tiktok_api.py` — TikTok scraper using TikTok-Api library (davidteather). (~2306 tok)
+- `tiktok_apify.py` — TikTok scraper using Apify Clockworks API. (~1504 tok)
+- `tiktok_tikapi.py` — TikTok scraper using TikAPI.io REST API. (~1476 tok)
+- `tiktok.py` — TikTok scraper using Playwright headless browser. No API key required. (~2416 tok)
 
 ## scripts/
 
@@ -120,5 +134,8 @@
 - `__init__.py` — Tests for trendcrwaling. (~9 tok)
 - `test_facebook.py` — Tests for the Facebook scraper (Playwright-based). (~1491 tok)
 - `test_instagram.py` — Tests for the Instagram scraper (Playwright-based). (~1628 tok)
-- `test_server.py` — Tests for the MCP server tool handler. (~1249 tok)
+- `test_server.py` — Tests for the FastMCP-based MCP server. (~10000 tok)
+- `test_tiktok_api.py` — Tests for the TikTok-Api library scraper. (~4463 tok)
+- `test_tiktok_apify.py` — Tests for the Apify Clockworks TikTok scraper. (~1565 tok)
+- `test_tiktok_tikapi.py` — Tests for the TikAPI.io scraper. (~1990 tok)
 - `test_tiktok.py` — Tests for the TikTok scraper (Playwright-based). (~1589 tok)

@@ -26,6 +26,7 @@ __all__ = [
     "_scrape_post_likes",
     "_shortcode_to_timestamp",
     "scrape_user",
+    "scrape_trending",
 ]
 
 _COOKIE_ENV: str = "IG_COOKIES_FILE"
@@ -232,6 +233,75 @@ async def _extract_posts(pg: Page) -> list[dict[str, str]]:
         await pg.wait_for_timeout(1500)
     raw: list[dict[str, str]] = await pg.evaluate(_EXTRACT_JS)
     return raw
+
+
+async def scrape_trending(
+    limit: int = 10, max_age_days: int = 10
+) -> list[InstagramPost]:
+    """
+    Scrape trending Instagram posts from #trending and #viral, deduplicate by post_url, filter by max_age_days, enrich with real like counts.
+    """
+    if limit <= 0:
+        raise ValueError(f"limit must be positive, got {limit}")
+    hashtags = ["trending", "viral"]
+    cookie_path: str | None = _cookie_file()
+    try:
+        async with async_playwright() as pw:
+            browser: Browser = await pw.chromium.launch(headless=True)
+            ctx: BrowserContext = await browser.new_context(
+                user_agent=_USER_AGENT,
+                viewport={"width": 1280, "height": 900},
+            )
+            if cookie_path is not None:
+                await ctx.add_cookies(_load_cookies(cookie_path))
+            all_posts: list[InstagramPost] = []
+            for tag in hashtags:
+                pg: Page = await ctx.new_page()
+                await pg.goto(
+                    f"https://www.instagram.com/explore/tags/{tag}/",
+                    wait_until="domcontentloaded",
+                    timeout=30000,
+                )
+                await pg.wait_for_timeout(5000)
+                raw: list[dict[str, str]] = await _extract_posts(pg)
+                posts: list[InstagramPost] = [
+                    InstagramPost(
+                        url=entry.get("url", ""),
+                        caption=entry.get("caption", ""),
+                        likes=0,
+                        post_url=entry.get("post_url", ""),
+                        created_at=_shortcode_to_timestamp(
+                            _extract_shortcode(entry.get("post_url", ""))
+                        ),
+                    )
+                    for entry in raw
+                ]
+                all_posts.extend(posts)
+                await pg.close()
+            # Deduplicate by post_url
+            seen = set()
+            deduped = []
+            for post in all_posts:
+                if post["post_url"] and post["post_url"] not in seen:
+                    seen.add(post["post_url"])
+                    deduped.append(post)
+            # Filter by max_age_days
+            import time
+
+            now = time.time()
+            filtered = [
+                p for p in deduped if now - p["created_at"] <= max_age_days * 86400
+            ]
+            # Limit
+            filtered = filtered[:limit]
+            # Enrich with real like counts
+            filtered = await _enrich_posts_with_likes(ctx, filtered)
+            await browser.close()
+            return filtered
+    except InstagramScraperError:
+        raise
+    except Exception as exc:
+        raise InstagramScraperError(f"Failed to scrape trending posts: {exc}") from exc
 
 
 async def scrape_user(username: str, limit: int = 20) -> list[InstagramPost]:

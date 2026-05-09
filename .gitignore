@@ -23,3 +23,6 @@ www.tiktok.com_cookies*.txt
 tiktok_debug.png
 .wolf/
 .coverage
+
+# AFK pipeline runtime state
+ralph-state/

@@ -24,10 +24,304 @@
       "file": "scrapers/tiktok.py",
       "root_cause": "author parameter interpolated into JS f-string passed to page.evaluate(), allowing script injection via crafted username",
       "fix": "Removed author from JS string. Assign entry['author'] = author in Python after evaluate returns.",
-      "tags": ["security", "xss", "injection", "ISSUE-019", "py"],
+      "tags": [
+        "security",
+        "xss",
+        "injection",
+        "ISSUE-019",
+        "py"
+      ],
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-05-08T00:00:00.000Z"
+    },
+    {
+      "id": "bug-003",
+      "timestamp": "2026-05-08T11:44:09.753Z",
+      "error_message": "Wrong reference: True should be _is_headless",
+      "file": "scrapers/tiktok.py",
+      "root_cause": "Used \"True\" instead of \"_is_headless\"",
+      "fix": "Changed True → _is_headless",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-08T11:44:09.753Z"
+    },
+    {
+      "id": "bug-004",
+      "timestamp": "2026-05-08T12:59:55.394Z",
+      "error_message": "Significant refactor of ",
+      "file": "ralph/once.sh",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 14→24 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "sh"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-08T12:59:55.394Z"
+    },
+    {
+      "id": "bug-005",
+      "timestamp": "2026-05-08T14:33:12.799Z",
+      "error_message": "Significant refactor of ",
+      "file": "ralph/afk.sh",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 40→76 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "sh"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-08T14:33:12.799Z"
+    },
+    {
+      "id": "bug-006",
+      "timestamp": "2026-05-08T14:43:19.556Z",
+      "error_message": "Function not marked async",
+      "file": "tests/test_server.py",
+      "root_cause": "Function uses await but wasn't declared async",
+      "fix": "Added async modifier",
+      "tags": [
+        "auto-detected",
+        "async-fix",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-08T14:43:19.556Z"
+    },
+    {
+      "id": "bug-007",
+      "timestamp": "2026-05-08T14:46:16.980Z",
+      "error_message": "Significant refactor of ",
+      "file": "scrapers/tiktok_apify.py",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 11→14 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-08T14:46:16.980Z"
+    },
+    {
+      "id": "bug-008",
+      "timestamp": "2026-05-08T14:48:34.902Z",
+      "error_message": "Missing await",
+      "file": "tests/test_tiktok_api.py",
+      "root_cause": "Async call without await — returned Promise instead of value",
+      "fix": "Added await to async call",
+      "tags": [
+        "auto-detected",
+        "async-fix",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-08T14:48:34.902Z"
+    },
+    {
+      "id": "bug-009",
+      "timestamp": "2026-05-08T14:49:32.486Z",
+      "error_message": "Missing await",
+      "file": "scrapers/tiktok_api.py",
+      "root_cause": "Async call without await — returned Promise instead of value",
+      "fix": "Added await to async call",
+      "tags": [
+        "auto-detected",
+        "async-fix",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-08T14:49:32.486Z"
+    },
+    {
+      "id": "bug-010",
+      "timestamp": "2026-05-08T14:50:13.910Z",
+      "error_message": "Missing await",
+      "file": "tests/test_tiktok_tikapi.py",
+      "root_cause": "Async call without await — returned Promise instead of value",
+      "fix": "Added await to async call",
+      "tags": [
+        "auto-detected",
+        "async-fix",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-08T14:50:13.910Z"
+    },
+    {
+      "id": "bug-011",
+      "timestamp": "2026-05-08T14:50:55.529Z",
+      "error_message": "Function not marked async",
+      "file": "scrapers/tiktok_tikapi.py",
+      "root_cause": "Function uses await but wasn't declared async",
+      "fix": "Added async modifier",
+      "tags": [
+        "auto-detected",
+        "async-fix",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-08T14:50:55.529Z"
+    },
+    {
+      "id": "bug-012",
+      "timestamp": "2026-05-08T14:53:35.896Z",
+      "error_message": "Function not marked async",
+      "file": "scrapers/tiktok_apify.py",
+      "root_cause": "Function uses await but wasn't declared async",
+      "fix": "Added async modifier",
+      "tags": [
+        "auto-detected",
+        "async-fix",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-08T14:53:35.896Z"
+    },
+    {
+      "id": "bug-013",
+      "timestamp": "2026-05-08T14:56:50.214Z",
+      "error_message": "Missing await",
+      "file": "tests/test_server.py",
+      "root_cause": "Async call without await — returned Promise instead of value",
+      "fix": "Added await to async call",
+      "tags": [
+        "auto-detected",
+        "async-fix",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-08T14:56:50.214Z"
+    },
+    {
+      "id": "bug-014",
+      "timestamp": "2026-05-08T14:57:17.824Z",
+      "error_message": "Incorrect value in code",
+      "file": "tests/test_server.py",
+      "root_cause": "Had \"All 15 MCP tools are registered on the mcp object",
+      "fix": "Changed to \"All 21 MCP tools are registered on the mcp object",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-08T14:57:17.824Z"
+    },
+    {
+      "id": "bug-015",
+      "timestamp": "2026-05-08T15:01:03.349Z",
+      "error_message": "Significant refactor of ",
+      "file": "mcp_server/server.py",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 6→9 lines (2 removed) | Also: \"\"\"Scrape TikTok posts for a user using Apify Cloc; Requires APIFY_TOKEN environment variable to be se | Also: \"\"\"Scrape trending TikTok posts using TikAPI.io ma; Requires TIKAPI_KEY environment variable to be set | Also: \"\"\"Scrape trending TikTok posts using Apify Clockw; Requires APIFY_TOKEN environment variable to be se | Also: \"\"\"Scrape TikTok posts for a hashtag using TikAPI.; Requires TIKAPI_KEY environment variable to be set | Also: \"\"\"Scrape TikTok posts for a hashtag using Apify C; Requires APIFY_TOKEN environment variable to be se",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 6,
+      "last_seen": "2026-05-08T15:01:04.570Z"
+    },
+    {
+      "id": "bug-016",
+      "timestamp": "2026-05-09T07:04:01.970Z",
+      "error_message": "Incorrect value in code",
+      "file": ".mcp.json",
+      "root_cause": "Had \"TT_COOKIES_FILE\"",
+      "fix": "Changed to \"TT_MS_TOKEN\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "json"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-09T07:04:01.970Z"
+    },
+    {
+      "id": "bug-017",
+      "timestamp": "2026-05-09T07:08:04.009Z",
+      "error_message": "Incorrect value in code",
+      "file": "scrapers/tiktok_api.py",
+      "root_cause": "Had \")\n                desc: str = getattr(video, \"",
+      "fix": "Changed to \")\n                as_dict: dict[str, object] = ge",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-09T07:08:04.009Z"
+    },
+    {
+      "id": "bug-018",
+      "timestamp": "2026-05-09T07:17:44.233Z",
+      "error_message": "Significant refactor of ",
+      "file": "scrapers/tiktok_api.py",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 18→25 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-09T07:17:44.233Z"
+    },
+    {
+      "id": "bug-019",
+      "timestamp": "2026-05-09T07:21:01.233Z",
+      "error_message": "Significant refactor of ",
+      "file": "mcp_server/server.py",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 14→23 lines (2 removed) | Also: async def tiktok_trending_api(limit: int = 20) -> ; posts: list[TikTokApiPost] = await _scrape_tiktok_ | Also: async def tiktok_hashtag_api(tag: str, limit: int ; posts: list[TikTokApiPost] = await _scrape_tiktok_",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 3,
+      "last_seen": "2026-05-09T07:21:53.107Z"
+    },
+    {
+      "id": "bug-020",
+      "timestamp": "2026-05-09T07:24:09.568Z",
+      "error_message": "Incorrect value in code",
+      "file": "scrapers/tiktok_api.py",
+      "root_cause": "Had \"playAddr\"",
+      "fix": "Changed to \"cover\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-05-09T07:24:09.568Z"
     }
   ]
 }

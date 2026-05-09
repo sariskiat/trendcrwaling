@@ -160,3 +160,98 @@ async def test_scrape_page_closes_browser_on_exception() -> None:
                 await scrape_page("mkrestaurants", limit=5)
 
     mock_browser.close.assert_called_once()
+
+
+# ── ISSUE-049: timestamp + scrape_hashtag + scrape_trending ──────────────────
+from scrapers.facebook import (  # noqa: E402
+    _parse_facebook_time,
+    scrape_hashtag,
+    scrape_trending,
+)
+
+
+def test_parse_facebook_time_known_value() -> None:
+    ts = _parse_facebook_time("May 7, 2026 at 3:00 PM")
+    # 2026-05-07 15:00:00 local — use UTC for determinism in test
+    assert ts > 0
+    # Roughly: 1746000000–1747000000 range for early May 2026
+    assert 1745000000 < ts < 1748000000
+
+
+def test_parse_facebook_time_returns_zero_on_garbage() -> None:
+    assert _parse_facebook_time("just now") == 0
+
+
+def test_parse_facebook_time_returns_zero_on_empty() -> None:
+    assert _parse_facebook_time("") == 0
+
+
+async def test_scrape_page_result_has_created_at() -> None:
+    fake_posts = [
+        {
+            "text": "hello",
+            "post_url": "https://www.facebook.com/p/1/",
+            "image_url": "",
+            "time": "May 7, 2026 at 3:00 PM",
+        }
+    ]
+    mock_pw, _, _, _ = _make_pw_mocks(evaluate_posts=fake_posts)
+    with _patch_pw(mock_pw):
+        result = await scrape_page("testpage", limit=1)
+    assert "created_at" in result[0]
+    assert result[0]["created_at"] > 0
+
+
+async def test_scrape_trending_deduplicates(mock_hashtag_gen: MagicMock) -> None:
+    same_post = {
+        "text": "hi",
+        "post_url": "https://www.facebook.com/p/SAME/",
+        "image_url": "",
+        "time": "May 7, 2026 at 3:00 PM",
+    }
+    mock_pw, _, _, _ = _make_pw_mocks(evaluate_posts=[same_post])
+    with _patch_pw(mock_pw):
+        with patch(
+            "scrapers.facebook.scrape_page",
+            new=AsyncMock(
+                return_value=[
+                    {
+                        "text": "hi",
+                        "post_url": "https://www.facebook.com/p/SAME/",
+                        "image_url": "",
+                        "time": "May 7, 2026 at 3:00 PM",
+                        "likes": 0,
+                        "created_at": 1746622800,
+                    }
+                ]
+            ),
+        ):
+            result = await scrape_trending(limit=10, max_age_days=365)
+    urls = [p["post_url"] for p in result]
+    assert len(urls) == len(set(urls))
+
+
+async def test_scrape_hashtag_filters_old_posts(mock_hashtag_gen: MagicMock) -> None:
+    old_post = {
+        "text": "old",
+        "post_url": "https://www.facebook.com/p/OLD/",
+        "image_url": "",
+        "time": "Jan 1, 2020 at 12:00 PM",
+        "likes": 0,
+        "created_at": 1577836800,  # 2020-01-01
+    }
+    with patch(
+        "scrapers.facebook.scrape_page",
+        new=AsyncMock(return_value=[old_post]),
+    ):
+        with patch(
+            "scrapers.facebook.generate_hashtags",
+            new=AsyncMock(return_value=["summer"]),
+        ):
+            result = await scrape_hashtag("summer", limit=10, max_age_days=10)
+    assert len(result) == 0
+
+
+@pytest.fixture()
+def mock_hashtag_gen() -> MagicMock:
+    return MagicMock()

@@ -16,11 +16,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
-# Install GitHub Copilot CLI (standalone binary, not gh extension)
-RUN curl -fsSL "https://github.com/github/gh-copilot/releases/latest/download/gh-copilot-linux-amd64" \
-    -o /usr/local/bin/copilot \
-    && chmod +x /usr/local/bin/copilot \
-    || (echo "WARNING: copilot CLI download failed — will rely on host mount" && true)
+# Install Copilot CLI (github/copilot-cli — the new standalone CLI, not the deprecated gh extension)
+RUN ARCH=$(uname -m) \
+    && case "$ARCH" in \
+         x86_64)  TARBALL="copilot-linux-x64.tar.gz" ;; \
+         aarch64) TARBALL="copilot-linux-arm64.tar.gz" ;; \
+         *) echo "Unsupported arch: $ARCH" && exit 1 ;; \
+    esac \
+    && curl -fsSL "https://github.com/github/copilot-cli/releases/latest/download/${TARBALL}" \
+       -o /tmp/copilot.tar.gz \
+    && mkdir /tmp/cop \
+    && tar -xzf /tmp/copilot.tar.gz -C /tmp/cop \
+    && find /tmp/cop -type f -name "copilot" -exec install -m755 {} /usr/local/bin/copilot \; \
+    && rm -rf /tmp/cop /tmp/copilot.tar.gz \
+    && copilot --version
 
 # Install Playwright browsers (needed for scraper smoke tests inside container)
 RUN pip install --no-cache-dir playwright && playwright install --with-deps chromium

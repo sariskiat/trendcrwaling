@@ -1,9 +1,1 @@
-{
-  "mcpServers": {
-    "sukishi-trend-research": {
-      "command": "uv",
-      "args": ["run", "python", "-m", "mcp_server.server"],
-      "cwd": "/Users/saris.kia.adm/Desktop/trendcrwaling"
-    }
-  }
-}
+{"mcpServers": {"sukishi-trend-research": {"command": "uv", "args": ["run", "python", "-m", "mcp_server.server"], "cwd": "/Users/saris.kia.adm/Desktop/trendcrwaling", "env": {"TT_MS_TOKEN": "TnI-Avr-j1B637UhEoOh56ZMOux8OyswrG9vgoyZbMAQM8ELWkjJQBZtaHQoUkhMRIAg7P-D3FVgiG41lssqcBNpPIZalvPUMtYDYBMfgA4irW01KZk-lQbKnEl23bGjb9neRnaeaIcFlg=="}}}}

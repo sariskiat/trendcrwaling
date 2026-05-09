@@ -13,7 +13,29 @@ from scrapers.instagram import (
     InstagramScraperError,
     _shortcode_to_timestamp,
     scrape_user,
+    scrape_trending,
 )
+
+import time
+
+
+@pytest.mark.asyncio
+async def test_scrape_trending_deduplicates():
+    """
+    Integration: scrape_trending returns deduped posts from #trending and #viral.
+    Should not return duplicate post_url, and all posts must be recent (<=10 days old).
+    """
+    limit = 10
+    max_age_days = 10
+    posts = await scrape_trending(limit=limit, max_age_days=max_age_days)
+    urls = [p["post_url"] for p in posts]
+    assert len(urls) == len(set(urls)), "scrape_trending did not deduplicate post_url"
+    now = time.time()
+    for p in posts:
+        assert now - p["created_at"] <= max_age_days * 86400, (
+            f"Old post found: {p['created_at']}"
+        )
+    assert len(posts) <= limit
 
 
 def _make_pw_mocks(

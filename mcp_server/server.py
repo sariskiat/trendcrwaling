@@ -155,6 +155,8 @@ async def tiktok_user_posts_api(
 
     Requires TT_MS_TOKEN environment variable to be set.
 
+    Returns posts ≤ 10 days old.
+
     Args:
         username: TikTok handle without @.
         limit: Max number of posts to return.
@@ -165,7 +167,7 @@ async def tiktok_user_posts_api(
     _validate_limit(limit)
 
     posts: list[TikTokApiPost] = await _scrape_tiktok_api_user(
-        username, limit, days_back, timeout
+        username, limit, days_back, timeout, max_age_days=10
     )
     return json.dumps(posts, ensure_ascii=False, indent=2)
 
@@ -213,6 +215,8 @@ async def tiktok_trending_api(
 
     Requires TT_MS_TOKEN environment variable to be set.
 
+    Returns posts ≤ 10 days old.
+
     Args:
         limit: Max number of posts to return.
         days_back: Only return posts from last N days. None = no filter.
@@ -220,7 +224,9 @@ async def tiktok_trending_api(
     """
     _validate_limit(limit)
 
-    posts: list[TikTokApiPost] = await _scrape_tiktok_api_trending(limit, days_back, timeout)
+    posts: list[TikTokApiPost] = await _scrape_tiktok_api_trending(
+        limit, days_back, timeout, max_age_days=10
+    )
     return json.dumps(posts, ensure_ascii=False, indent=2)
 
 
@@ -271,6 +277,8 @@ async def tiktok_hashtag_api(
 
     Requires TT_MS_TOKEN environment variable to be set.
 
+    Returns posts ≤ 10 days old.
+
     Args:
         tag: Hashtag to search for (without #).
         limit: Max number of posts to return.
@@ -281,7 +289,7 @@ async def tiktok_hashtag_api(
     _validate_limit(limit)
 
     posts: list[TikTokApiPost] = await _scrape_tiktok_api_hashtag(
-        tag, limit, days_back, timeout
+        tag, limit, days_back, timeout, max_age_days=10
     )
     return json.dumps(posts, ensure_ascii=False, indent=2)
 

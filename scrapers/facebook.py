@@ -3,15 +3,31 @@
 from __future__ import annotations
 
 import os
+import time as _time
+from datetime import datetime
 from http.cookiejar import MozillaCookieJar
 from typing import TypedDict
 
 from playwright._impl._api_structures import (
     SetCookieParam,  # not re-exported from playwright.async_api
 )
-from playwright.async_api import Browser, Page, Playwright, async_playwright
+from playwright.async_api import (
+    Browser,
+    Page,
+    Playwright,
+    async_playwright,
+)
 
-__all__ = ["FacebookPost", "FacebookScraperError", "scrape_page"]
+from scrapers.hashtag_generator import generate_hashtags
+
+__all__ = [
+    "FacebookPost",
+    "FacebookScraperError",
+    "_parse_facebook_time",
+    "scrape_hashtag",
+    "scrape_page",
+    "scrape_trending",
+]
 
 _POST_SELECTOR = "[data-ad-comet-preview='message']"
 _REAL_IMAGE_PATTERN = "scontent"
@@ -50,10 +66,39 @@ class FacebookPost(TypedDict):
     time: str
     post_url: str
     image_url: str
+    created_at: int  # Unix timestamp; 0 if unparseable
 
 
 class FacebookScraperError(Exception):
     """Raised when Facebook scraping fails due to network or access errors."""
+
+
+_FB_TIME_FORMATS = [
+    "%B %-d, %Y at %I:%M %p",  # "May 7, 2026 at 3:00 PM"
+    "%B %d, %Y at %I:%M %p",  # "May 07, 2026 at 3:00 PM"
+    "%B %-d, %Y",  # "May 7, 2026"
+    "%B %d, %Y",  # "May 07, 2026"
+]
+
+
+def _parse_facebook_time(time_str: str) -> int:
+    """Parse a Facebook-style time string to a Unix timestamp.
+
+    Args:
+        time_str: String like "May 7, 2026 at 3:00 PM" from <abbr title="...">.
+
+    Returns:
+        Unix timestamp as int, or 0 if parsing fails.
+    """
+    if not time_str or not time_str.strip():
+        return 0
+    for fmt in _FB_TIME_FORMATS:
+        try:
+            dt = datetime.strptime(time_str.strip(), fmt)
+            return int(dt.timestamp())
+        except ValueError:
+            continue
+    return 0
 
 
 def _cookie_file() -> str | None:
@@ -161,6 +206,7 @@ async def scrape_page(page: str, limit: int = 20) -> list[FacebookPost]:
                         time=entry.get("time", ""),
                         post_url=entry.get("post_url", ""),
                         image_url=entry.get("image_url", ""),
+                        created_at=_parse_facebook_time(entry.get("time", "")),
                     )
                     for entry in raw[:limit]
                 ]
@@ -173,3 +219,83 @@ async def scrape_page(page: str, limit: int = 20) -> list[FacebookPost]:
         raise FacebookScraperError(
             f"Failed to scrape Facebook page '{page}': {exc}"
         ) from exc
+
+
+_TRENDING_SEEDS = ["trending", "viral"]
+_HASHTAG_POSTS_PER_TAG = 10
+
+
+async def scrape_hashtag(
+    query: str,
+    limit: int = 10,
+    max_age_days: int = 10,
+) -> list[FacebookPost]:
+    """Scrape trending posts for a topic across generated hashtags.
+
+    Generates 10 hashtags from query, scrapes each hashtag page, filters
+    by age, ranks by likes (or recency if likes unavailable), returns top limit.
+
+    Args:
+        query: Freeform user query to generate hashtags from.
+        limit: Maximum number of posts to return.
+        max_age_days: Exclude posts older than this many days.
+
+    Returns:
+        List of FacebookPost dicts, sorted by likes descending.
+    """
+    hashtags = await generate_hashtags(query, platform="facebook")
+    cutoff = _time.time() - max_age_days * 86400
+    seen: set[str] = set()
+    posts: list[FacebookPost] = []
+    for tag in hashtags:
+        try:
+            slug = f"hashtag/{tag}/"
+            batch = await scrape_page(slug, limit=_HASHTAG_POSTS_PER_TAG)
+            for p in batch:
+                url = p["post_url"]
+                if url in seen:
+                    continue
+                seen.add(url)
+                if p["created_at"] > 0 and p["created_at"] < cutoff:
+                    continue
+                posts.append(p)
+        except Exception:
+            continue
+    posts.sort(key=lambda p: (p["likes"], p["created_at"]), reverse=True)
+    return posts[:limit]
+
+
+async def scrape_trending(
+    limit: int = 10,
+    max_age_days: int = 10,
+) -> list[FacebookPost]:
+    """Scrape globally trending Facebook posts from #trending and #viral.
+
+    Deduplicates by post_url, filters by age, ranks by likes/recency.
+
+    Args:
+        limit: Maximum number of posts to return.
+        max_age_days: Exclude posts older than this many days.
+
+    Returns:
+        List of FacebookPost dicts, sorted by likes descending.
+    """
+    cutoff = _time.time() - max_age_days * 86400
+    seen: set[str] = set()
+    posts: list[FacebookPost] = []
+    for seed in _TRENDING_SEEDS:
+        try:
+            slug = f"hashtag/{seed}/"
+            batch = await scrape_page(slug, limit=_HASHTAG_POSTS_PER_TAG)
+            for p in batch:
+                url = p["post_url"]
+                if url in seen:
+                    continue
+                seen.add(url)
+                if p["created_at"] > 0 and p["created_at"] < cutoff:
+                    continue
+                posts.append(p)
+        except Exception:
+            continue
+    posts.sort(key=lambda p: (p["likes"], p["created_at"]), reverse=True)
+    return posts[:limit]
