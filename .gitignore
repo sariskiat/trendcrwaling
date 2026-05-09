@@ -15,3 +15,11 @@ ig_session.json
 .pytest_cache/
 *_cookies.txt
 login_error.html
+
+# Sensitive files
+cookies*.txt
+tt_cookies*.txt
+www.tiktok.com_cookies*.txt
+tiktok_debug.png
+.wolf/
+.coverage
