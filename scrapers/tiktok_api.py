@@ -69,7 +69,10 @@ def _extract_post(
     """
     as_dict: dict[str, object] = getattr(video, "as_dict", {})
     video_id: str = getattr(video, "id", "")
-    desc: str = str(as_dict.get("desc", "") or "")
+    # TikTokApi may provide desc on the object or inside as_dict
+    desc: str = str(
+        getattr(video, "desc", None) or as_dict.get("desc", "") or ""
+    )
 
     # Extract stats
     stats: dict[str, int] = as_dict.get("stats", {})  # type: ignore[assignment]
