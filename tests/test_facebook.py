@@ -172,10 +172,8 @@ from scrapers.facebook import (  # noqa: E402
 
 def test_parse_facebook_time_known_value() -> None:
     ts = _parse_facebook_time("May 7, 2026 at 3:00 PM")
-    # 2026-05-07 15:00:00 local — use UTC for determinism in test
-    assert ts > 0
-    # Roughly: 1746000000–1747000000 range for early May 2026
-    assert 1745000000 < ts < 1748000000
+    # 2026-05-07 15:00:00 UTC
+    assert ts == 1778166000
 
 
 def test_parse_facebook_time_returns_zero_on_garbage() -> None:

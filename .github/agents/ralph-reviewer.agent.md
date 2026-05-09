@@ -1,6 +1,6 @@
 ---
 name: ralph-reviewer
-description: "Code review specialist. Runs review-protocol and code-standards checks against a diff. Delivers a structured audit report. Never implements."
+description: "Code review specialist. Runs review-protocol and code-standards checks against a diff. Delivers a structured audit report. On APPROVED, moves the issue file to issues/done/ and commits. Never implements code."
 disable-model-invocation: false
 user-invocable: false
 model: Claude Sonnet 4.6 (copilot)

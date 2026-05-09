@@ -1,6 +1,6 @@
 ---
 name: ralph-implementor
-description: "TDD implementation worker. Reads a brief from ralph-state/brief.json, writes a failing real integration test first, implements until green, runs quality gates, commits, and moves the issue to done/."
+description: "TDD implementation worker. Reads a brief from ralph-state/brief.json, writes a failing real integration test first, implements until green, runs quality gates, and commits. Does NOT move the issue to done — that is the reviewer's job."
 disable-model-invocation: false
 user-invocable: false
 model: GPT-4.1 (copilot)
@@ -77,19 +77,13 @@ git commit -m "<type>(<scope>): <description>
 - Files changed: <list>"
 ```
 
-## 6. MOVE ISSUE TO DONE
-
-```bash
-mv issues/<issue_file> issues/done/<issue_file>
-git add -A
-git commit -m "chore: move <issue_file> to done"
-```
-
-## 7. SIGNAL
+## 6. SIGNAL
 
 Print exactly one of:
-- `DONE: <issue_file>` — all gates green, committed, issue moved
+- `DONE: <issue_file>` — all gates green, committed
 - `FAILED: <short reason>` — could not complete (tests could not pass, API unreachable, etc.)
+
+Do NOT move the issue file to done/ — that is the reviewer's job after approval.
 
 # RULES
 

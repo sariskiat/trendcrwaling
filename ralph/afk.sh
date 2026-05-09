@@ -190,9 +190,13 @@ Read \`/workspace/ralph-state/brief.json\` and execute the full TDD workflow:
    - uv run pyright
    - uv run pytest -x
 5. git commit with: what changed, why, key decisions, files changed.
-6. mv issues/<issue_file> issues/done/<issue_file> && git add -A && git commit -m 'chore: close <issue_file>'
+
+Do NOT move the issue file to done/ — the reviewer handles that after approval.
 
 Print DONE: <issue_file> or FAILED: <reason>."
+
+  # Snapshot the current HEAD so we can diff everything the implementor commits
+  PRE_IMPL_SHA=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo "")
 
   rm -f "$VIOLATIONS_FILE"
   IMPL_OUT=$(run_agent "ralph-implementor" "$IMPLEMENTOR_PROMPT" 2>&1) || true
@@ -223,11 +227,15 @@ Print DONE: <issue_file> or FAILED: <reason>."
   echo ""
   echo "[ 3/3 ] Reviewer (Claude Sonnet) — /review-protocol + /code-standards..."
 
-  # Write diff to a file — avoids ARG_MAX ("argument list too long") when passing large diffs inline
+  # Write diff to a file — captures ALL commits the implementor made (pre-impl SHA → current HEAD)
   DIFF_FILE="$STATE_DIR/diff.txt"
-  git -C "$REPO_ROOT" diff HEAD~1...HEAD > "$DIFF_FILE" 2>/dev/null \
-    || git -C "$REPO_ROOT" show HEAD > "$DIFF_FILE" 2>/dev/null \
-    || echo "(no diff available)" > "$DIFF_FILE"
+  if [[ -n "$PRE_IMPL_SHA" ]] && git -C "$REPO_ROOT" rev-parse HEAD &>/dev/null; then
+    git -C "$REPO_ROOT" diff "${PRE_IMPL_SHA}"...HEAD > "$DIFF_FILE" 2>/dev/null \
+      || git -C "$REPO_ROOT" show HEAD > "$DIFF_FILE" 2>/dev/null \
+      || echo "(no diff available)" > "$DIFF_FILE"
+  else
+    echo "(no diff available)" > "$DIFF_FILE"
+  fi
 
   REVIEWER_PROMPT="# YOUR TASK
 
@@ -263,7 +271,15 @@ Read that file first, then apply review-protocol and code-standards checks.
   ]
 }
 
-2. Print exactly one of:
+2. If the verdict is APPROVED, move the issue to done and commit:
+```
+mv issues/<issue_file> issues/done/<issue_file>
+git add -A
+git commit -m "chore: close <issue_file> — approved"
+```
+The issue_file is in /workspace/ralph-state/brief.json under the key `issue_file`.
+
+3. Print exactly one of:
    VERDICT: APPROVED
    VERDICT: NEEDS_REVISION
    VERDICT: BLOCKED"
