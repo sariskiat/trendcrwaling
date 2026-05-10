@@ -448,8 +448,8 @@ async def test_scrape_hashtag_wraps_library_errors() -> None:
 # ============== max_age_days filtering tests ==============
 
 
-async def test_scrape_user_filters_old_posts() -> None:
-    """scrape_user drops posts older than max_age_days."""
+async def test_scrape_user_filters_posts_older_than_10_days() -> None:
+    """scrape_user returns only posts from the last 10 days (created_at filtering enforced)."""
     now = int(time.time())
     old_post = {
         "id": "old123",

@@ -94,7 +94,7 @@ async def test_instagram_global_trending_tool():
         patch.dict("os.environ", {"IG_COOKIES_FILE": "/path/to/cookies.txt"}),
     ):
         result = await instagram_global_trending(limit)
-    
+
     assert isinstance(result, str), "Tool should return a JSON string"
     posts = json.loads(result)
     assert isinstance(posts, list)

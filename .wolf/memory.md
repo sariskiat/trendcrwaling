@@ -3,6 +3,12 @@
 > Chronological action log. Hooks and AI append to this file automatically.
 > Old sessions are consolidated by the daemon weekly.
 
+## Session: 2026-05-10 Harness fix
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| — | Fixed AFK reviewer harness behavior | ralph/afk.sh | Enforced close-on-approval fallback and deduped auto-created review issues | ~900 |
+
 ## Session: 2026-05-10 PRD-to-issues
 
 | Time | Action | File(s) | Outcome | ~Tokens |

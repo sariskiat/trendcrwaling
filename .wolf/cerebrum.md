@@ -13,6 +13,7 @@
 - **Project:** trendcrwaling
 - **TikTok Scraper Pattern:** Replaced tiktokapipy with Playwright. Uses same pattern as Instagram scraper: _COOKIE_ENV, _load_cookies, _setup_browser with networkidle wait, _extract_posts with page.evaluate(), try/finally for browser.close(). TikTokPost now includes views (int), thumbnail_url (str), author (str) fields. Cookie auth via TT_COOKIES_FILE env var.
 - **Workflow Convention:** For `/saris-skill:prd-to-issues`, generate numbered markdown issues directly under `issues/` with tracer-bullet first, explicit `Blocked by` DAG, AFK/HITL type, and TDD acceptance criteria.
+- **Harness Convention:** AFK harness must enforce issue closure after reviewer APPROVED and must dedupe auto-created review-violation issues to prevent convergence loops.
 
 ## Do-Not-Repeat
 

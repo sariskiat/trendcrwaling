@@ -93,6 +93,43 @@ next_issue_number() {
   printf '%03d' $((max + 1))
 }
 
+normalize_issue_file() {
+  local raw="$1"
+  # Accept either "ISSUE-001-foo.md" or "issues/ISSUE-001-foo.md".
+  basename "$raw"
+}
+
+close_issue_if_needed() {
+  local raw_issue="$1"
+  local issue_file
+  issue_file="$(normalize_issue_file "$raw_issue")"
+  local open_path="$REPO_ROOT/issues/$issue_file"
+  local done_path="$REPO_ROOT/issues/done/$issue_file"
+
+  if [[ -f "$done_path" ]]; then
+    return 0
+  fi
+
+  if [[ ! -f "$open_path" ]]; then
+    echo "⚠ APPROVED but open issue file not found: $open_path"
+    return 1
+  fi
+
+  mv "$open_path" "$done_path"
+  git -C "$REPO_ROOT" add "$done_path"
+  git -C "$REPO_ROOT" add -u "$open_path" 2>/dev/null || true
+
+  if ! git -C "$REPO_ROOT" diff --cached --quiet; then
+    git -C "$REPO_ROOT" commit -m "chore: close $issue_file — approved by reviewer" >/dev/null 2>&1 || {
+      echo "⚠ Failed to commit issue closure for $issue_file"
+      return 1
+    }
+  fi
+
+  echo "  Closed: $issue_file"
+  return 0
+}
+
 # ── Main loop ─────────────────────────────────────────────────────────────────
 
 CONVERGENCE_COUNT=0
@@ -305,6 +342,16 @@ REVIEWERPROMPT
   case "$VERDICT" in
     APPROVED)
       echo "✓ APPROVED — resetting convergence counter."
+      # Enforce closure at harness level even if reviewer forgot to move/commit.
+      if ! close_issue_if_needed "$ISSUE_FILE"; then
+        echo "✗ APPROVED received but issue closure failed — treating as BLOCKED."
+        CONVERGENCE_COUNT=$((CONVERGENCE_COUNT + 1))
+        if [[ $CONVERGENCE_COUNT -ge $CONVERGENCE_LIMIT ]]; then
+          echo "Convergence limit reached while closing approved issue."
+          exit 1
+        fi
+        continue
+      fi
       CONVERGENCE_COUNT=0
       ;;
 
@@ -324,6 +371,11 @@ REVIEWERPROMPT
             | cut -c1-40 \
             | sed 's/-$//')
           IPATH="$REPO_ROOT/issues/ISSUE-${NUM}-review-${SLUG}.md"
+          # Avoid duplicate review-violation issue spam across iterations.
+          if ls "$REPO_ROOT"/issues/ISSUE-*-review-"$SLUG".md "$REPO_ROOT"/issues/done/ISSUE-*-review-"$SLUG".md >/dev/null 2>&1; then
+            echo "  Skipped duplicate review issue for: $SLUG"
+            continue
+          fi
           cat > "$IPATH" <<ISSUE_EOF
 # [ISSUE-${NUM}] Review violation: $vdesc
 

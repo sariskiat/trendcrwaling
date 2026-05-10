@@ -322,6 +322,26 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-05-09T07:24:09.568Z"
+    },
+    {
+      "id": "bug-021",
+      "timestamp": "2026-05-10T16:10:00.000Z",
+      "error_message": "AFK harness reported APPROVED but issue did not reliably move to done",
+      "file": "ralph/afk.sh",
+      "root_cause": "Harness trusted reviewer output and did not enforce issue closure, and repeated non-approved cycles created duplicate auto-generated review issues",
+      "fix": "Added harness-level close_issue_if_needed fallback on APPROVED and duplicate-review-issue dedupe guard",
+      "tags": [
+        "harness",
+        "reviewer",
+        "afk",
+        "workflow",
+        "sh"
+      ],
+      "related_bugs": [
+        "bug-005"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-05-10T16:10:00.000Z"
     }
   ]
 }
