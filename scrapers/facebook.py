@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import time as _time
-from datetime import datetime
+from datetime import datetime, timezone
 from http.cookiejar import MozillaCookieJar
 from typing import TypedDict
 
@@ -95,7 +95,9 @@ def _parse_facebook_time(time_str: str) -> int:
     for fmt in _FB_TIME_FORMATS:
         try:
             dt = datetime.strptime(time_str.strip(), fmt)
-            return int(dt.timestamp())
+            # Assume UTC timezone and convert to timestamp
+            dt_utc = dt.replace(tzinfo=timezone.utc)
+            return int(dt_utc.timestamp())
         except ValueError:
             continue
     return 0

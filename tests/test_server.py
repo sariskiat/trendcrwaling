@@ -64,16 +64,42 @@ async def test_instagram_global_trending_tool():
     - Tool is registered and callable via MCP
     """
     from mcp_server.server import instagram_global_trending
+    from scrapers.instagram import InstagramPost
     import time
 
     limit = 7
-    result = await instagram_global_trending(limit)
+    now = int(time.time())
+    mock_posts: list[InstagramPost] = [
+        InstagramPost(
+            url="https://cdn.instagram.com/img1.jpg",
+            caption="Recent post 1",
+            likes=500,
+            post_url="https://www.instagram.com/p/POST001/",
+            created_at=now - 86400,  # 1 day ago
+        ),
+        InstagramPost(
+            url="https://cdn.instagram.com/img2.jpg",
+            caption="Recent post 2",
+            likes=300,
+            post_url="https://www.instagram.com/p/POST002/",
+            created_at=now - 172800,  # 2 days ago
+        ),
+    ]
+    with (
+        patch(
+            "scrapers.instagram.scrape_trending",
+            new_callable=AsyncMock,
+            return_value=mock_posts,
+        ),
+        patch.dict("os.environ", {"IG_COOKIES_FILE": "/path/to/cookies.txt"}),
+    ):
+        result = await instagram_global_trending(limit)
+    
     assert isinstance(result, str), "Tool should return a JSON string"
     posts = json.loads(result)
     assert isinstance(posts, list)
     assert len(posts) <= limit
     post_urls = set()
-    now = time.time()
     last_likes = None
     last_created = None
     for post in posts:
