@@ -133,7 +133,6 @@ async def test_tiktok_user_posts_missing_cookies() -> None:
 async def test_instagram_global_trending_tool_requires_ig_cookies():
     """instagram_global_trending raises ConfigurationError with actionable message when IG_COOKIES_FILE not set."""
     from mcp_server.server import instagram_global_trending, ConfigurationError
-    from unittest.mock import patch
 
     # IG_COOKIES_FILE not set
     with patch.dict("os.environ", {}, clear=True):
