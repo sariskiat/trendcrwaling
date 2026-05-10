@@ -93,6 +93,7 @@ async def instagram_global_trending(limit: int = 10) -> str:
     Returns up to `limit` posts with keys post_url, url, caption, likes, created_at.
     Deduped by post_url, sorted by likes desc (fallback created_at desc), recency filtered.
     """
+    _require_env(IG_COOKIES_FILE, "scrape Instagram trending posts")
     from scrapers.instagram import scrape_trending
 
     _validate_limit(limit)
