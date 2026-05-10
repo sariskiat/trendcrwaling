@@ -237,7 +237,8 @@ Print DONE: <issue_file> or FAILED: <reason>."
     echo "(no diff available)" > "$DIFF_FILE"
   fi
 
-  REVIEWER_PROMPT="# YOUR TASK
+  REVIEWER_PROMPT=$(cat <<'REVIEWERPROMPT'
+# YOUR TASK
 
 Review the git diff for this iteration. The diff has been written to the file:
   /workspace/ralph-state/diff.txt
@@ -249,7 +250,7 @@ Read that file first, then apply review-protocol and code-standards checks.
 - Test-first: was a failing test written before implementation? (look at commit order)
 - Coverage: new functions/methods have corresponding tests?
 - Integration: fits existing module patterns and error handling?
-- Structure: functions ≤ 30 lines, single responsibility, no dead code?
+- Structure: functions <= 30 lines, single responsibility, no dead code?
 
 ## Pass 2 — Code Standards
 
@@ -263,26 +264,25 @@ Read that file first, then apply review-protocol and code-standards checks.
 
 ## Required output
 
-1. Write \`/workspace/ralph-state/violations.json\`:
+1. Write `/workspace/ralph-state/violations.json`:
 {
-  \"verdict\": \"APPROVED\" | \"NEEDS_REVISION\" | \"BLOCKED\",
-  \"violations\": [
-    { \"file\": \"<file>\", \"line\": <line or 0>, \"severity\": \"FAIL\" | \"WARN\", \"description\": \"<what>\" }
+  "verdict": "APPROVED" | "NEEDS_REVISION" | "BLOCKED",
+  "violations": [
+    { "file": "<file>", "line": <line or 0>, "severity": "FAIL" | "WARN", "description": "<what>" }
   ]
 }
 
 2. If the verdict is APPROVED, move the issue to done and commit:
-```
-mv issues/<issue_file> issues/done/<issue_file>
-git add -A
-git commit -m "chore: close <issue_file> — approved"
-```
-The issue_file is in /workspace/ralph-state/brief.json under the key `issue_file`.
+  - Read the issue_file field from /workspace/ralph-state/brief.json
+  - Run: mv issues/<issue_file> issues/done/<issue_file>
+  - Run: git add -A && git commit -m "chore: close <issue_file> — approved"
 
 3. Print exactly one of:
    VERDICT: APPROVED
    VERDICT: NEEDS_REVISION
-   VERDICT: BLOCKED"
+   VERDICT: BLOCKED
+REVIEWERPROMPT
+)
 
   REVIEW_OUT=$(run_agent "ralph-reviewer" "$REVIEWER_PROMPT" 2>&1) || true
   echo "$REVIEW_OUT"

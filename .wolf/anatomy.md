@@ -61,6 +61,7 @@
 
 ## docs/
 
+- `prd-social-allthree-modes.md` — PRD — Social All-Three: 3 Modes x 3 Platforms (~1300 tok)
 - `prd-facebook-scraper-live.md` — PRD — Facebook Scraper: Live Data via MCP (~709 tok)
 - `prd-playwright-facebook-scraper.md` — PRD — Replace facebook-scraper with Playwright (~761 tok)
 - `prd-playwright-instagram-scraper.md` — PRD — Replace instagrapi with Playwright for Instagram Scraping (~938 tok)
@@ -69,6 +70,14 @@
 
 ## issues/
 
+- `ISSUE-043-instagram-global-trending-tracer-bullet.md` — [ISSUE-043] Ship Instagram global trending tracer bullet (~360 tok)
+- `ISSUE-044-instagram-query-hashtag-trending-with-real-likes.md` — [ISSUE-044] Add Instagram query hashtag trending with real likes (~410 tok)
+- `ISSUE-045-facebook-three-modes-with-recency.md` — [ISSUE-045] Implement Facebook three modes with 10-day recency (~395 tok)
+- `ISSUE-046-tiktok-api-three-modes-recency-contract.md` — [ISSUE-046] Enforce TikTok API three-mode recency contract end-to-end (~320 tok)
+- `ISSUE-047-create-llm-hashtag-generator-module.md` — [ISSUE-047] Create reusable LLM hashtag generator module (~300 tok)
+- `ISSUE-048-expose-complete-instagram-facebook-mode-tools.md` — [ISSUE-048] Expose complete Instagram/Facebook mode tools in MCP (~280 tok)
+- `ISSUE-049-automate-afk-hitl-classification-and-post-ship-smoke.md` — [ISSUE-049] Automate AFK/HITL classification and post-ship smoke blocking (~300 tok)
+- `ISSUE-050-run-hitl-credentialed-smoke-and-close-loop.md` — [ISSUE-050] Run HITL credentialed smoke and close loop (~300 tok)
 - `ISSUE-001-facebook-post-url-and-image.md` — [ISSUE-001] Add post_url and image_url to Facebook scraper (~671 tok)
 - `ISSUE-002-verify-mcp-returns-real-facebook-posts.md` — [ISSUE-002] Verify MCP tool returns real Facebook posts (~453 tok)
 - `ISSUE-003-fix-facebook-scraper-cookie-auth.md` — [ISSUE-003] Fix facebook-scraper: switch from credentials to browser cookies (~725 tok)

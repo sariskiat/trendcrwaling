@@ -54,6 +54,53 @@ async def test_tiktok_user_posts_invalid_username() -> None:
             await tiktok_user_posts("../../../etc/passwd", limit=20)
 
 
+@pytest.mark.asyncio
+async def test_instagram_global_trending_tool():
+    """
+    Integration: MCP tool instagram_global_trending(limit) returns deduped, recent, sorted posts.
+    - Returns up to `limit` posts with keys post_url, url, caption, likes, created_at
+    - Deduped by post_url, sorted by likes desc (fallback created_at desc)
+    - All posts: now - created_at <= 864000 when created_at > 0
+    - Tool is registered and callable via MCP
+    """
+    from mcp_server.server import instagram_global_trending
+    import time
+
+    limit = 7
+    result = await instagram_global_trending(limit)
+    assert isinstance(result, str), "Tool should return a JSON string"
+    posts = json.loads(result)
+    assert isinstance(posts, list)
+    assert len(posts) <= limit
+    post_urls = set()
+    now = time.time()
+    last_likes = None
+    last_created = None
+    for post in posts:
+        assert set(post.keys()) >= {"post_url", "url", "caption", "likes", "created_at"}
+        assert post["post_url"] not in post_urls, "Duplicate post_url found"
+        post_urls.add(post["post_url"])
+        if post["created_at"] > 0:
+            assert now - post["created_at"] <= 864000, (
+                f"Old post found: {post['created_at']}"
+            )
+        if last_likes is not None:
+            assert post["likes"] <= last_likes or (
+                post["likes"] == last_likes and post["created_at"] <= last_created
+            ), "Posts not sorted by likes desc, fallback created_at desc"
+        last_likes = post["likes"]
+        last_created = post["created_at"]
+    # Tool should appear in MCP tool list
+    from mcp_server.server import mcp
+
+    tools = await mcp.list_tools()
+    # Print tool names for debug
+    print([getattr(t, "name", t) for t in tools])
+    assert any(
+        getattr(t, "name", None) == "instagram_global_trending" for t in tools
+    ), "Tool not registered in MCP"
+
+
 async def test_tiktok_user_posts_invalid_limit_zero() -> None:
     """tiktok_user_posts raises ValidationError for limit < 1."""
     from mcp_server.server import tiktok_user_posts, ValidationError
@@ -886,6 +933,7 @@ def test_all_tools_registered() -> None:
         "tiktok_hashtag_tikapi",
         "tiktok_hashtag_apify",
         "instagram_user_posts",
+        "instagram_global_trending",
         "facebook_page_posts",
         "analyze_image",
     }

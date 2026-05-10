@@ -87,6 +87,26 @@ mcp = FastMCP("sukishi-trend-research")
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def instagram_global_trending(limit: int = 10) -> str:
+    """
+    Scrape global trending Instagram posts (from #trending and #viral).
+    Returns up to `limit` posts with keys post_url, url, caption, likes, created_at.
+    Deduped by post_url, sorted by likes desc (fallback created_at desc), recency filtered.
+    """
+    from scrapers.instagram import scrape_trending
+
+    _validate_limit(limit)
+    posts = await scrape_trending(limit=limit, max_age_days=10)
+    # Dedup and sort (should already be deduped, but sort here for contract)
+    deduped = {p["post_url"]: p for p in posts if p.get("post_url")}
+    sorted_posts = sorted(
+        deduped.values(),
+        key=lambda p: (-p["likes"], -p["created_at"] if p["created_at"] > 0 else 0),
+    )
+    return json.dumps(sorted_posts[:limit], ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def tiktok_user_posts(username: str, limit: int = 20) -> str:
     """Scrape recent TikTok posts for a given username using Playwright.
 
