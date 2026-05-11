@@ -34,6 +34,9 @@ from scrapers.tiktok_apify import scrape_trending as _scrape_apify_trending
 from scrapers.tiktok_apify import scrape_hashtag as _scrape_apify_hashtag
 from scrapers.instagram import InstagramPost, scrape_user as _scrape_instagram_user
 from scrapers.facebook import FacebookPost, scrape_page as _scrape_facebook_page
+from scrapers.hashtag_generator import (
+    generate_hashtags,
+)  # IG/FB Mode 2 integration point
 
 __all__ = [
     "mcp",
@@ -400,6 +403,12 @@ async def analyze_image(
 
     api_key = _require_env("OPENAI_API_KEY", "your OpenAI API key for Vision")
     return await analyze_image_with_vision(image_url, prompt, api_key)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def generate_hashtags_tool(query: str, platform: str = "general") -> list[str]:
+    """Generate 10 normalized hashtags for a query and platform (Mode 2 integration stub)."""
+    return await generate_hashtags(query, platform)
 
 
 async def main() -> None:

@@ -9,6 +9,18 @@
 |------|--------|---------|---------|--------|
 | — | Fixed AFK reviewer harness behavior | ralph/afk.sh | Enforced close-on-approval fallback and deduped auto-created review issues | ~900 |
 
+## Session: 2026-05-11 Harness env fix
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| — | Fixed implementor env propagation | ralph/afk.sh | Added explicit OPENAI_API_KEY fallback injection and .env source step in implementor prompt | ~700 |
+
+## Session: 2026-05-11 Harness retry-loop fix
+
+| Time | Action | File(s) | Outcome | ~Tokens |
+|------|--------|---------|---------|--------|
+| — | Fixed repeated ISSUE-047 reselection | ralph/afk.sh | Added temporary failed-issue quarantine per run; supervisor now skips recently failed issues | ~650 |
+
 ## Session: 2026-05-10 PRD-to-issues
 
 | Time | Action | File(s) | Outcome | ~Tokens |

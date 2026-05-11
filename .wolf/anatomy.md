@@ -114,7 +114,7 @@
 
 ## ralph/
 
-- `afk.sh` — ralph/afk.sh — looped AFK run with reviewer gating, close-on-approval fallback, and deduped violation issue generation (~680 tok)
+- `afk.sh` — ralph/afk.sh — looped AFK run with reviewer gating, close-on-approval fallback, deduped violation issue generation, OPENAI_API_KEY env fallback injection, and per-run failed-issue quarantine (~760 tok)
 - `once.sh` — ralph/once.sh — single AFK run (Sonnet supervisor + Haiku implementer) (~208 tok)
 
 ## scrapers/

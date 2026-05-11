@@ -342,6 +342,47 @@
       ],
       "occurrences": 1,
       "last_seen": "2026-05-10T16:10:00.000Z"
+    },
+    {
+      "id": "bug-022",
+      "timestamp": "2026-05-11T21:40:00.000Z",
+      "error_message": "Implementor reported OPENAI_API_KEY not set despite .env being configured",
+      "file": "ralph/afk.sh",
+      "root_cause": "Agent tool subprocess environment can drop/sanitize inherited variables; relying only on --env-file was insufficiently robust for integration test steps",
+      "fix": "Added explicit OPENAI_API_KEY injection fallback and updated implementor prompt to source /workspace/.env before integration tests and verify key presence",
+      "tags": [
+        "harness",
+        "env",
+        "openai",
+        "afk",
+        "sh"
+      ],
+      "related_bugs": [
+        "bug-021"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-05-11T21:40:00.000Z"
+    },
+    {
+      "id": "bug-023",
+      "timestamp": "2026-05-11T22:10:00.000Z",
+      "error_message": "AFK pipeline repeatedly reselected ISSUE-047 after implementor failure",
+      "file": "ralph/afk.sh",
+      "root_cause": "On implementor FAILED, harness continued without changing candidate pool, allowing supervisor to pick the same issue every iteration",
+      "fix": "Added per-run failed issue quarantine (failed-issues.txt), filtered supervisor issue pool, and auto-reset only when all open issues are temporarily failed",
+      "tags": [
+        "harness",
+        "afk",
+        "scheduler",
+        "retry-loop",
+        "sh"
+      ],
+      "related_bugs": [
+        "bug-021",
+        "bug-022"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-05-11T22:10:00.000Z"
     }
   ]
 }

@@ -40,8 +40,10 @@ BRIEF_FILE="$STATE_DIR/brief.json"
 VIOLATIONS_FILE="$STATE_DIR/violations.json"
 REVIEW_LOG="$STATE_DIR/review-log.md"
 CONVERGENCE_FILE="$STATE_DIR/convergence-failures.md"
+FAILED_ISSUES_FILE="$STATE_DIR/failed-issues.txt"
 
 mkdir -p "$STATE_DIR"
+touch "$FAILED_ISSUES_FILE"
 
 # ── Container runner ──────────────────────────────────────────────────────────
 # All three agents use the ralph-agent Docker image via copilot CLI.
@@ -72,6 +74,24 @@ run_agent() {
     sed '/^[[:space:]]*#/d; /^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]]*=/=/' \
       "$REPO_ROOT/.env" > "$_envtmp"
     args+=(--env-file "$_envtmp")
+
+    # Fallback: explicitly inject ALL keys from .env as individual -e flags.
+    # Some tool runners (copilot agent shell steps) drop inherited env vars even
+    # when --env-file is present. This is a generic fix for any repo key, not
+    # just OPENAI_API_KEY.
+    while IFS= read -r _line; do
+      [[ -z "$_line" || "$_line" == \#* ]] && continue
+      [[ "$_line" != *=* ]] && continue
+      _key="${_line%%=*}"
+      _val="${_line#*=}"
+      # Strip surrounding quotes from value
+      _val="${_val%\"}"
+      _val="${_val#\"}"
+      _val="${_val%\'}"
+      _val="${_val#\'}"
+      [[ -n "$_key" && -n "$_val" ]] && args+=(-e "${_key}=${_val}")
+    done < "$_envtmp"
+
     trap "rm -f '$_envtmp'" RETURN
   fi
 
@@ -91,6 +111,22 @@ next_issue_number() {
     [[ -n "$n" && "$n" -gt "$max" ]] && max="$n"
   done
   printf '%03d' $((max + 1))
+}
+
+is_issue_temporarily_failed() {
+  local issue_file="$1"
+  grep -qx "$issue_file" "$FAILED_ISSUES_FILE" 2>/dev/null
+}
+
+collect_open_issue_files() {
+  local f b
+  for f in "$REPO_ROOT"/issues/*.md; do
+    [[ -f "$f" ]] || continue
+    b=$(basename "$f")
+    if ! is_issue_temporarily_failed "$b"; then
+      echo "$f"
+    fi
+  done
 }
 
 normalize_issue_file() {
@@ -152,13 +188,20 @@ for ((i=1; i<=MAX_ITER; i++)); do
     exit 0
   fi
 
+  AVAILABLE_ISSUES=$(collect_open_issue_files)
+  if [[ -z "$AVAILABLE_ISSUES" ]]; then
+    echo "⚠ All open issues failed implementor in this run; clearing temporary failure set and retrying."
+    : > "$FAILED_ISSUES_FILE"
+    AVAILABLE_ISSUES=$(collect_open_issue_files)
+  fi
+
   # ── Stage 1: Supervisor ──────────────────────────────────────────────────────
   echo ""
   echo "[ 1/3 ] Supervisor (GPT-4o) — /hardgate → brief..."
 
   COMMITS=$(git -C "$REPO_ROOT" log -n 5 --format="%H%n%ad%n%B---" --date=short 2>/dev/null \
     || echo "No commits found")
-  ISSUES_BODY=$(cat "$REPO_ROOT"/issues/*.md 2>/dev/null || echo "No issues found")
+  ISSUES_BODY=$(echo "$AVAILABLE_ISSUES" | xargs cat 2>/dev/null || echo "No issues found")
   PROMPT_BODY=$(cat "$REPO_ROOT/ralph/prompt.md")
 
   SUPERVISOR_PROMPT="# CONTEXT
@@ -218,6 +261,9 @@ $PROMPT_BODY
 Read \`/workspace/ralph-state/brief.json\` and execute the full TDD workflow:
 
 1. Read the brief (issue_file, files, test_file, first_failing_test, acceptance_criteria).
+  1.5. Before any integration test/gate, load env in the same shell command:
+    - \`set -a; source /workspace/.env; set +a\`
+    - Verify key availability: \`python -c 'import os; print(bool(os.getenv("OPENAI_API_KEY")))'\`
 2. Write a FAILING real integration test in test_file. Run it — confirm red before continuing.
    - NO mocks, NO @patch, NO MagicMock. Fire real API calls / launch real browsers.
 3. Implement until the test passes.
@@ -251,7 +297,10 @@ Print DONE: <issue_file> or FAILED: <reason>."
 
   if echo "$IMPL_OUT" | grep -q "^FAILED:"; then
     FAIL_REASON=$(echo "$IMPL_OUT" | grep "^FAILED:" | head -1)
-    echo "⚠ Implementor: $FAIL_REASON — skipping review, continuing to next iteration."
+    echo "⚠ Implementor: $FAIL_REASON — marking $ISSUE_FILE as temporarily failed for this run."
+    normalize_issue_file "$ISSUE_FILE" >> "$FAILED_ISSUES_FILE"
+    sort -u "$FAILED_ISSUES_FILE" -o "$FAILED_ISSUES_FILE"
+    echo "  Skipping review, continuing to next iteration."
     continue
   fi
 

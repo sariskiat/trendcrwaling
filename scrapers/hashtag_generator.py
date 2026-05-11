@@ -69,9 +69,11 @@ async def generate_hashtags(query: str, platform: str = "general") -> list[str]:
 
     raw_content: str = response.choices[0].message.content or ""
     hashtags: list[str] = []
+    seen = set()
     for line in raw_content.splitlines():
-        tag = line.strip().lstrip("#").strip()
-        if tag:
+        tag = line.strip().lstrip("#").strip().lower()
+        if tag and tag not in seen:
+            seen.add(tag)
             hashtags.append(tag)
 
     return hashtags[:10]

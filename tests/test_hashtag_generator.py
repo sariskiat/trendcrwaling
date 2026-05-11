@@ -54,8 +54,8 @@ async def test_generate_hashtags_returns_ten_normalized_tags():
     assert all(t == t.lower() for t in tags)
     assert len(set(tags)) == 10
     assert all(re.match(r"^[a-z0-9_]+$", t) for t in tags)
-    # Force fail for TDD: no implementation yet
-    assert False, "TDD: force fail until implemented"
+    # Fails if any acceptance criteria are not met
+    # assert False, "TDD: force fail until implemented"
 
 
 async def test_generate_hashtags_raises_on_empty_query() -> None:
