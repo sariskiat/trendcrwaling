@@ -942,4 +942,6 @@ Warning: Custom agent "ralph-supervisor" specifies mod
 </run>
 
 
-the stae of all 
+the stae of all issues from dag didnt properly get managed the context is all over the placed
+
+please help me figured this out
