@@ -99,9 +99,7 @@ async def test_generate_hashtags_strips_hash_prefix(
     client = _make_openai_mock(hashtags_with_prefix)
     with patch.dict(
         os.environ,
-        {
-            "OPENAI_API_KEY": "sk-REDACTED"
-        },
+        {"OPENAI_API_KEY": "test-key"},
     ):
         with patch("scrapers.hashtag_generator.AsyncOpenAI", return_value=client):
             result = await generate_hashtags("test")
