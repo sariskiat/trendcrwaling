@@ -33,14 +33,29 @@ def mock_openai_client() -> MagicMock:
     return _make_openai_mock(hashtags)
 
 
-async def test_generate_hashtags_returns_10(mock_openai_client: MagicMock) -> None:
-    with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
-        with patch(
-            "scrapers.hashtag_generator.AsyncOpenAI", return_value=mock_openai_client
-        ):
-            result = await generate_hashtags("summer fashion", platform="instagram")
-    assert len(result) == 10
-    assert all(not h.startswith("#") for h in result)
+async def test_generate_hashtags_returns_ten_normalized_tags():
+    # This is a REAL integration test: fires a real OpenAI API call (no mocks)
+    import os
+    import re
+
+    if not os.environ.get("OPENAI_API_KEY"):
+        import pytest
+
+        pytest.skip(
+            "OPENAI_API_KEY not set in environment; skipping real integration test."
+        )
+    from scrapers.hashtag_generator import generate_hashtags
+
+    tags = await generate_hashtags("summer fashion", platform="instagram")
+    assert isinstance(tags, list)
+    assert len(tags) == 10
+    assert all(isinstance(t, str) for t in tags)
+    assert all(not t.startswith("#") for t in tags)
+    assert all(t == t.lower() for t in tags)
+    assert len(set(tags)) == 10
+    assert all(re.match(r"^[a-z0-9_]+$", t) for t in tags)
+    # Force fail for TDD: no implementation yet
+    assert False, "TDD: force fail until implemented"
 
 
 async def test_generate_hashtags_raises_on_empty_query() -> None:
@@ -82,7 +97,12 @@ async def test_generate_hashtags_strips_hash_prefix(
     """If OpenAI returns hashtags with # prefix, they should be stripped."""
     hashtags_with_prefix = [f"#tag{i}" for i in range(10)]
     client = _make_openai_mock(hashtags_with_prefix)
-    with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
+    with patch.dict(
+        os.environ,
+        {
+            "OPENAI_API_KEY": "sk-REDACTED"
+        },
+    ):
         with patch("scrapers.hashtag_generator.AsyncOpenAI", return_value=client):
             result = await generate_hashtags("test")
     assert all(not h.startswith("#") for h in result)
