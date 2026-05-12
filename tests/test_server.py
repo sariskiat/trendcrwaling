@@ -87,7 +87,7 @@ async def test_instagram_global_trending_tool():
     ]
     with (
         patch(
-            "scrapers.instagram.scrape_trending",
+            "mcp_server.server._scrape_instagram_trending",
             new_callable=AsyncMock,
             return_value=mock_posts,
         ),
@@ -1048,7 +1048,7 @@ def test_analysis_error_is_value_error() -> None:
 
 # Smoke test for tool registration
 def test_all_tools_registered() -> None:
-    """All 18 MCP tools are registered on the mcp object."""
+    """All 20 MCP tools are registered on the mcp object."""
     from mcp_server.server import mcp
 
     expected_tools: set[str] = {

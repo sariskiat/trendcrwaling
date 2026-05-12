@@ -36,6 +36,7 @@ from scrapers.instagram import (
     InstagramPost,
     scrape_user as _scrape_instagram_user,
     scrape_hashtag as _scrape_instagram_hashtag,
+    scrape_trending as _scrape_instagram_trending,
 )
 from scrapers.facebook import FacebookPost, scrape_page as _scrape_facebook_page
 from scrapers.facebook import scrape_hashtag as _scrape_facebook_hashtag
@@ -103,13 +104,10 @@ async def instagram_global_trending(limit: int = 10) -> str:
     Deduped by post_url, sorted by likes desc (fallback created_at desc), recency filtered.
     """
     _require_env(IG_COOKIES_FILE, "scrape Instagram trending posts")
-    from scrapers.instagram import scrape_trending
-
     _validate_limit(limit)
-    posts = await scrape_trending(limit=limit, max_age_days=10)
-    # Dedup and sort (should already be deduped, but sort here for contract)
-    deduped = {p["post_url"]: p for p in posts if p.get("post_url")}
-    sorted_posts = sorted(
+    posts: list[InstagramPost] = await _scrape_instagram_trending(limit=limit, max_age_days=10)
+    deduped: dict[str, InstagramPost] = {p["post_url"]: p for p in posts if p.get("post_url")}
+    sorted_posts: list[InstagramPost] = sorted(
         deduped.values(),
         key=lambda p: (-p["likes"], -p["created_at"] if p["created_at"] > 0 else 0),
     )
@@ -383,10 +381,9 @@ async def instagram_hashtag_trending(query: str, limit: int = 10) -> str:
     """
     _require_env(IG_COOKIES_FILE, "scrape Instagram hashtag trending posts")
     _validate_limit(limit)
-    posts = await _scrape_instagram_hashtag(query, limit=limit, max_age_days=10)
-    # Dedup and sort (should already be deduped, but sort here for contract)
-    deduped = {p["post_url"]: p for p in posts if p.get("post_url")}
-    sorted_posts = sorted(
+    posts: list[InstagramPost] = await _scrape_instagram_hashtag(query, limit=limit, max_age_days=10)
+    deduped: dict[str, InstagramPost] = {p["post_url"]: p for p in posts if p.get("post_url")}
+    sorted_posts: list[InstagramPost] = sorted(
         deduped.values(),
         key=lambda p: (-p["likes"], -p["created_at"] if p["created_at"] > 0 else 0),
     )
@@ -414,9 +411,9 @@ async def facebook_hashtag_trending(query: str, limit: int = 10) -> str:
     """
     _require_env(FB_COOKIES_FILE, "scrape Facebook hashtag trending posts")
     _validate_limit(limit)
-    posts = await _scrape_facebook_hashtag(query, limit=limit, max_age_days=10)
-    deduped = {p["post_url"]: p for p in posts if p.get("post_url")}
-    sorted_posts = sorted(
+    posts: list[FacebookPost] = await _scrape_facebook_hashtag(query, limit=limit, max_age_days=10)
+    deduped: dict[str, FacebookPost] = {p["post_url"]: p for p in posts if p.get("post_url")}
+    sorted_posts: list[FacebookPost] = sorted(
         deduped.values(),
         key=lambda p: (-p["likes"], -p["created_at"] if p["created_at"] > 0 else 0),
     )
@@ -432,9 +429,9 @@ async def facebook_global_trending(limit: int = 10) -> str:
     """
     _require_env(FB_COOKIES_FILE, "scrape Facebook global trending posts")
     _validate_limit(limit)
-    posts = await _scrape_facebook_trending(limit=limit, max_age_days=10)
-    deduped = {p["post_url"]: p for p in posts if p.get("post_url")}
-    sorted_posts = sorted(
+    posts: list[FacebookPost] = await _scrape_facebook_trending(limit=limit, max_age_days=10)
+    deduped: dict[str, FacebookPost] = {p["post_url"]: p for p in posts if p.get("post_url")}
+    sorted_posts: list[FacebookPost] = sorted(
         deduped.values(),
         key=lambda p: (-p["likes"], -p["created_at"] if p["created_at"] > 0 else 0),
     )

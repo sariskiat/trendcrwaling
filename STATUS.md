@@ -6,11 +6,11 @@ Active development. Harness: saris-skill plugin.
 
 ## Next Step
 
-Start **ISSUE-048** — AFK, unblocked (ISSUE-045 is now done).
+No unblocked AFK issues; ISSUE-049 needs rewrite before ISSUE-050 can proceed.
 
 ## In Progress
 
-_(none — update this when you pick up an issue)_
+_(none)_
 
 ## Blockers
 
@@ -21,7 +21,6 @@ _(none — update this when you pick up an issue)_
 
 | Issue | Type | Blocked by | Ready? |
 |---|---|---|---|
-| ISSUE-048 | AFK | — | ✅ Ready |
 | ISSUE-049 | AFK | needs rewrite | ❌ Blocked |
 | ISSUE-050 | HITL | 049 | ❌ Blocked |
 
@@ -33,3 +32,4 @@ _(none — update this when you pick up an issue)_
 - ISSUE-046 (TikTok API three modes + recency contract)
 - ISSUE-047 (LLM hashtag generator module)
 - ISSUE-045 (Facebook three modes with 10-day recency)
+- ISSUE-048 (Expose complete IG/FB mode tools in MCP)

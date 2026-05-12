@@ -1,40 +1,37 @@
-# Session Handoff — ISSUE-045: Facebook Three Modes with 10-Day Recency
+# Session Handoff — ISSUE-048: Expose complete Instagram/Facebook mode tools in MCP
 Date: 2026-05-12
 
 ## Rounds
 
-### Review — Round 1
+### Round 1 — Review
 
-**Hard Gates:**
-- All 98 tests pass (`uv run pytest tests/test_facebook.py tests/test_hashtag_generator.py tests/test_server.py` — 98 passed in 2.85s)
-- `ruff check .` passes with zero errors
-- No new typed violations introduced by this diff
+**Reviewer:** claude-sonnet-4-6
 
-**Pyright Diagnostics Investigation:**
-- `test_server.py:795` — `InstagramPost` constructed with 4 positional args, missing `created_at` (5th field). Pre-existing: line 795 is `test_instagram_user_posts_success`, not touched by this diff.
-- `test_server.py:866` — `FacebookPost` constructed with 5 positional args, missing `created_at` (6th field). Pre-existing: line 866 is the existing `test_facebook_page_posts_success`, not in the diff.
-- `test_facebook.py:203` — `mock_hashtag_gen` fixture param not accessed in `test_scrape_trending_deduplicates`. Pre-existing: not in the diff.
-- `test_facebook.py:232` — `mock_hashtag_gen` fixture param not accessed in `test_scrape_hashtag_filters_old_posts`. Pre-existing: not in the diff.
+**Gates checked:** hard-gates, implementation-philosophy, code-standards
 
-All four Pyright diagnostics are pre-existing. None introduced by this diff.
+**Defects found and fixed before approval:**
 
-**New Tests Review:**
-- `test_scrape_hashtag_keeps_post_at_exactly_10_days`: Correctly tests boundary-inclusive behavior using frozen time. Single assertion concept. Passes.
-- `test_scrape_hashtag_filters_post_at_11_days`: Correctly tests that 11-day-old post is excluded. Single assertion concept. Passes.
-- `test_facebook_page_posts_response_includes_created_at`: Tests user-visible JSON output includes `created_at` for every post including zero-timestamp posts. Both typed and passes.
+1. **Hard Gate 1 — Missing type annotations on `posts`, `deduped`, `sorted_posts` in 4 new tools.** All four new tools (`instagram_global_trending`, `instagram_hashtag_trending`, `facebook_hashtag_trending`, `facebook_global_trending`) used bare `posts = await ...` with no explicit type annotation. Fixed to `posts: list[InstagramPost] = ...` / `list[FacebookPost]` matching the established pattern in all TikTok tools.
 
-**Code Standards:**
-- All new functions have return type `-> None` and docstrings.
-- No `Any`, no bare dicts without context.
-- Tests test behavior at boundary (public function return value), not implementation internals.
-- Frozen time pattern via `patch("scrapers.facebook._time.time", ...)` is correct and deterministic.
+2. **Code Standards — Deferred local import in `instagram_global_trending`.** The function used `from scrapers.instagram import scrape_trending` inside the function body instead of a module-level aliased import matching the project convention (`_scrape_*` prefix). Fixed by adding `scrape_trending as _scrape_instagram_trending` to the top-level `scrapers.instagram` import block and updating the call site.
 
-**Verdict:** APPROVED — all gates green, all diagnostics pre-existing, new tests are correct and well-scoped.
+3. **Test — Mock path broken after import fix.** The existing `test_instagram_global_trending_tool` patched `scrapers.instagram.scrape_trending` (the deferred-import lookup path), which no longer works once the import was promoted to module level. Fixed mock path to `mcp_server.server._scrape_instagram_trending`.
+
+4. **Documentation — Stale docstring in test.** `test_all_tools_registered` docstring said "18 MCP tools" but the expected set contains 20. Fixed to "20".
+
+**Result:** All 4 defects fixed. 183 tests pass. `bash init.sh` green.
+
+**Decision:** APPROVED
 
 ## What Was Accomplished
 
-ISSUE-045 closed. Three Facebook MCP tool modes (`facebook_page_posts`, `facebook_hashtag_trending`, `facebook_global_trending`) with 10-day recency filter were already implemented. TDD pass added three new boundary tests:
-1. Boundary-inclusive recency: post exactly 10 days old is kept.
-2. Boundary-exclusive recency: post 11 days old is filtered.
-3. `facebook_page_posts` JSON response always includes `created_at` for all posts (including zero-timestamp posts).
-All 183 total tests pass. Ruff clean. No new Pyright issues introduced.
+ISSUE-048 is complete. All 6 required MCP tools (`instagram_user_posts`, `instagram_hashtag_trending`, `instagram_global_trending`, `facebook_page_posts`, `facebook_hashtag_trending`, `facebook_global_trending`) are registered in `mcp_server/server.py` with:
+
+- Full input validation via `_validate_handle`, `_validate_limit`, `_require_env`
+- Explicit type annotations on all local variables (`posts`, `deduped`, `sorted_posts`)
+- Deduplication by `post_url`
+- Sorting by likes desc with `created_at` fallback
+- Recency filtering via `max_age_days=10`
+- Return value as `json.dumps(..., ensure_ascii=False, indent=2)`
+
+All 183 tests pass. The tool registration smoke test (`test_all_tools_registered`) now verifies all 20 MCP tools by name.
