@@ -27,3 +27,6 @@ tiktok_debug.png
 # AFK pipeline runtime state
 ralph-state/
 .worktrees/
+
+# Local machine-only Claude settings (contains secrets/tokens)
+.claude/settings.local.json
