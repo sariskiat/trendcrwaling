@@ -25,6 +25,7 @@ __all__ = [
     "_enrich_posts_with_likes",
     "_scrape_post_likes",
     "_shortcode_to_timestamp",
+    "scrape_hashtag",
     "scrape_user",
     "scrape_trending",
 ]
@@ -285,12 +286,15 @@ async def scrape_trending(
                 if post["post_url"] and post["post_url"] not in seen:
                     seen.add(post["post_url"])
                     deduped.append(post)
-            # Filter by max_age_days
+            # Filter by max_age_days; keep posts with created_at=0 (timestamp unknown)
             import time
 
             now = time.time()
+            max_age_seconds: float = max_age_days * 86400
             filtered = [
-                p for p in deduped if now - p["created_at"] <= max_age_days * 86400
+                p
+                for p in deduped
+                if p["created_at"] == 0 or now - p["created_at"] <= max_age_seconds
             ]
             # Limit
             filtered = filtered[:limit]
@@ -399,12 +403,15 @@ async def scrape_hashtag(
                 except Exception:
                     pass
                 all_posts.extend(posts)
-            # Filter by max_age_days
+            # Filter by max_age_days; keep posts with created_at=0 (timestamp unknown)
             import time
 
             now = time.time()
+            max_age_seconds: float = max_age_days * 86400
             filtered = [
-                p for p in all_posts if now - p["created_at"] <= max_age_days * 86400
+                p
+                for p in all_posts
+                if p["created_at"] == 0 or now - p["created_at"] <= max_age_seconds
             ]
             # Rank by likes
             filtered.sort(key=lambda p: p["likes"], reverse=True)

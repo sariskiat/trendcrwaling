@@ -376,6 +376,38 @@ async def test_scrape_hashtag_filters_old_posts():
         assert posts[0]["post_url"] == "https://www.instagram.com/p/NEW/"
 
 
+@pytest.mark.asyncio
+async def test_scrape_hashtag_keeps_posts_with_unknown_timestamp() -> None:
+    """Posts with created_at=0 (unknown timestamp) should NOT be filtered out by recency filter."""
+    fake_now = 1700000000
+    unknown_ts_post = {
+        "post_url": "https://www.instagram.com/p/UNKNOWN/",
+        "url": "https://cdn.instagram.com/img/unknown.jpg",
+        "caption": "unknown timestamp post",
+        "created_at": 0,  # sentinel — timestamp not decodable
+        "likes": 50,
+    }
+    with (
+        patch("scrapers.hashtag_generator.generate_hashtags", return_value=["testtag"]),
+        patch("scrapers.instagram._scrape_hashtag", return_value=[unknown_ts_post]),
+        patch(
+            "scrapers.instagram._enrich_posts_with_likes",
+            side_effect=lambda ctx, posts: posts,
+        ),
+        patch("time.time", return_value=fake_now),
+    ):
+        sys.modules["scrapers.instagram"].generate_hashtags = sys.modules[
+            "scrapers.hashtag_generator"
+        ].generate_hashtags
+        from scrapers.instagram import scrape_hashtag
+
+        posts = await scrape_hashtag("test", limit=10, max_age_days=10)
+        assert len(posts) == 1, (
+            "Post with created_at=0 should be kept (timestamp unknown, not old)"
+        )
+        assert posts[0]["post_url"] == "https://www.instagram.com/p/UNKNOWN/"
+
+
 async def test_scrape_post_likes_returns_integer() -> None:
     mock_ctx = MagicMock()
     mock_page = AsyncMock()
