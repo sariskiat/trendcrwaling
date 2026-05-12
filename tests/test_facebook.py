@@ -250,6 +250,62 @@ async def test_scrape_hashtag_filters_old_posts(mock_hashtag_gen: MagicMock) -> 
     assert len(result) == 0
 
 
+async def test_scrape_hashtag_keeps_post_at_exactly_10_days() -> None:
+    """A post at exactly 10 days old (created_at = frozen_now - 864000) is NOT filtered out.
+
+    Mocks scrapers.facebook._time.time so cutoff is deterministic.
+    """
+    frozen_now = 1_800_000_000
+    exactly_10_days = frozen_now - 10 * 86400
+    recent_post = {
+        "text": "boundary",
+        "post_url": "https://www.facebook.com/p/BOUNDARY/",
+        "image_url": "",
+        "time": "",
+        "likes": 0,
+        "created_at": exactly_10_days,
+    }
+    with patch("scrapers.facebook._time.time", return_value=float(frozen_now)):
+        with patch(
+            "scrapers.facebook.scrape_page",
+            new=AsyncMock(return_value=[recent_post]),
+        ):
+            with patch(
+                "scrapers.facebook.generate_hashtags",
+                new=AsyncMock(return_value=["boundary"]),
+            ):
+                result = await scrape_hashtag("boundary topic", limit=10, max_age_days=10)
+    assert len(result) == 1, "Post exactly at 10-day boundary should be included"
+
+
+async def test_scrape_hashtag_filters_post_at_11_days() -> None:
+    """A post 11 days old (created_at = frozen_now - 950400) is filtered out.
+
+    Mocks scrapers.facebook._time.time so cutoff is deterministic.
+    """
+    frozen_now = 1_800_000_000
+    eleven_days_ago = frozen_now - 11 * 86400
+    stale_post = {
+        "text": "stale",
+        "post_url": "https://www.facebook.com/p/STALE/",
+        "image_url": "",
+        "time": "",
+        "likes": 0,
+        "created_at": eleven_days_ago,
+    }
+    with patch("scrapers.facebook._time.time", return_value=float(frozen_now)):
+        with patch(
+            "scrapers.facebook.scrape_page",
+            new=AsyncMock(return_value=[stale_post]),
+        ):
+            with patch(
+                "scrapers.facebook.generate_hashtags",
+                new=AsyncMock(return_value=["stale"]),
+            ):
+                result = await scrape_hashtag("stale topic", limit=10, max_age_days=10)
+    assert len(result) == 0, "Post 11 days old should be filtered out"
+
+
 @pytest.fixture()
 def mock_hashtag_gen() -> MagicMock:
     return MagicMock()

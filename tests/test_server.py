@@ -1216,6 +1216,46 @@ async def test_facebook_global_trending_invalid_limit() -> None:
             await facebook_global_trending(limit=999)
 
 
+async def test_facebook_page_posts_response_includes_created_at() -> None:
+    """facebook_page_posts JSON response always includes created_at for every post."""
+    from mcp_server.server import facebook_page_posts
+    from scrapers.facebook import FacebookPost
+
+    now = int(time.time())
+    mock_posts: list[FacebookPost] = [
+        FacebookPost(
+            text="Post with timestamp",
+            likes=100,
+            time="May 7, 2026 at 3:00 PM",
+            post_url="https://facebook.com/posts/ts001",
+            image_url="",
+            created_at=now - 3600,
+        ),
+        FacebookPost(
+            text="Post with no timestamp",
+            likes=0,
+            time="",
+            post_url="https://facebook.com/posts/ts002",
+            image_url="",
+            created_at=0,
+        ),
+    ]
+    with (
+        patch(
+            "mcp_server.server._scrape_facebook_page",
+            new_callable=AsyncMock,
+            return_value=mock_posts,
+        ),
+        patch.dict("os.environ", {"FB_COOKIES_FILE": "/path/to/cookies.txt"}),
+    ):
+        result = await facebook_page_posts("testpage", limit=20)
+
+    parsed = json.loads(result)
+    assert all("created_at" in p for p in parsed), (
+        "All posts in facebook_page_posts response must include created_at"
+    )
+
+
 def test_analyze_image_docstring_lists_correct_exceptions() -> None:
     """analyze_image docstring Raises section lists ValidationError, ConfigurationError, AnalysisError."""
     from mcp_server.server import analyze_image
