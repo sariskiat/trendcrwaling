@@ -797,6 +797,7 @@ async def test_instagram_user_posts_success() -> None:
             caption="Test post",
             likes=1000,
             post_url="https://instagram.com/p/abc123",
+            created_at=0,
         )
     ]
     with (
@@ -869,6 +870,7 @@ async def test_facebook_page_posts_success() -> None:
             time="2025-01-15",
             post_url="https://facebook.com/posts/abc123",
             image_url="https://scontent.xx.fbcdn.net/img.jpg",
+            created_at=0,
         )
     ]
     with (
