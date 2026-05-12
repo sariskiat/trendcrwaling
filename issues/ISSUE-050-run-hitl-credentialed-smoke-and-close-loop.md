@@ -7,7 +7,7 @@ human-in-loop
 polish
 
 ## Blocked by
-- Automate AFK/HITL classification and post-ship smoke blocking
+- ISSUE-049
 
 ## Why
 Final verification requires real credentials and human confirmation that all three platforms and modes behave in production.

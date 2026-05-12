@@ -358,6 +358,46 @@ async def scrape_hashtag(
             all_posts: list[InstagramPost] = []
             for tag in hashtags:
                 posts = await _scrape_hashtag(tag, ctx)
+                # Ensure /reel/ URLs are included by scraping /reels/ page and by direct /reel/ selector
+                try:
+                    pg_reels: Page = await ctx.new_page()
+                    await pg_reels.goto(
+                        f"https://www.instagram.com/explore/tags/{tag}/reels/",
+                        wait_until="domcontentloaded",
+                        timeout=30000,
+                    )
+                    await pg_reels.wait_for_timeout(5000)
+                    # Try to extract /reel/ links from the main grid
+                    await pg_reels.evaluate("window.scrollTo(0, 2000)")
+                    await pg_reels.wait_for_timeout(2000)
+                    raw_reels: list[dict[str, str]] = await pg_reels.evaluate("""() => {
+                        const results = [];
+                        document.querySelectorAll("a[href*='/reel/']").forEach(link => {
+                            const post_url = link.href || "";
+                            const img = link.querySelector("img");
+                            const url = img ? (img.src || "") : "";
+                            const caption = img ? (img.alt || "") : "";
+                            results.push({ post_url, url, caption });
+                        });
+                        return results;
+                    }""")
+                    posts.extend(
+                        [
+                            InstagramPost(
+                                url=entry.get("url", ""),
+                                caption=entry.get("caption", ""),
+                                likes=0,
+                                post_url=entry.get("post_url", ""),
+                                created_at=_shortcode_to_timestamp(
+                                    _extract_shortcode(entry.get("post_url", ""))
+                                ),
+                            )
+                            for entry in raw_reels
+                        ]
+                    )
+                    await pg_reels.close()
+                except Exception:
+                    pass
                 all_posts.extend(posts)
             # Filter by max_age_days
             import time

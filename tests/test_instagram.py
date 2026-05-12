@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import os
+import sys
+import time
 from contextlib import AbstractContextManager
 from unittest.mock import AsyncMock, MagicMock, patch
-import sys
 
 import pytest
 
@@ -16,8 +18,6 @@ from scrapers.instagram import (
     scrape_user,
     scrape_trending,
 )
-
-import time
 
 
 @pytest.mark.asyncio
@@ -237,6 +237,104 @@ def test_post_link_selector_includes_reels() -> None:
 
 # ── ISSUE-046: detail-page likes ──────────────────────────────────────────────
 from scrapers.instagram import _enrich_posts_with_likes, _scrape_post_likes  # noqa: E402
+
+
+@pytest.mark.asyncio
+async def test_instagram_hashtag_trending_calls_generate_hashtags():
+    """
+    Unit: instagram_hashtag_trending (mocked) scrapes hashtags, dedupes, filters by recency, enriches likes, and sorts by likes desc.
+    - Mocks _scrape_instagram_hashtag to return fake posts with /p/ and /reel/ URLs
+    - Verifies result is JSON string with deduped posts
+    - Verifies /p/ and /reel/ URLs are present
+    - Verifies likes are non-zero for at least one post
+    - Verifies recency filter (<=10 days)
+    - Verifies sorting by likes desc
+    """
+    from mcp_server.server import instagram_hashtag_trending
+    from scrapers.instagram import InstagramPost
+
+    query = "cats"
+    limit = 7
+    now = int(time.time())
+
+    # Mock posts: include /p/ and /reel/ URLs, with non-zero likes, within 10 days
+    mock_posts: list[InstagramPost] = [
+        InstagramPost(
+            url="https://cdn.instagram.com/img1.jpg",
+            caption="Post 1 with real likes",
+            likes=500,
+            post_url="https://www.instagram.com/p/POST001/",
+            created_at=now - 86400,  # 1 day ago
+        ),
+        InstagramPost(
+            url="https://cdn.instagram.com/img2.jpg",
+            caption="Reel 1 with real likes",
+            likes=300,
+            post_url="https://www.instagram.com/reel/REEL001/",
+            created_at=now - 172800,  # 2 days ago
+        ),
+        InstagramPost(
+            url="https://cdn.instagram.com/img3.jpg",
+            caption="Post 2 with high likes",
+            likes=750,
+            post_url="https://www.instagram.com/p/POST002/",
+            created_at=now - 259200,  # 3 days ago
+        ),
+    ]
+
+    with (
+        patch(
+            "mcp_server.server._scrape_instagram_hashtag",
+            new_callable=AsyncMock,
+            return_value=mock_posts,
+        ),
+        patch.dict("os.environ", {"IG_COOKIES_FILE": "/fake/cookies.txt"}),
+    ):
+        posts_json = await instagram_hashtag_trending(query, limit=limit)
+
+    assert isinstance(posts_json, str), "Result should be a JSON string"
+    posts = json.loads(posts_json)
+    assert isinstance(posts, list), "Parsed result should be a list"
+    assert 1 <= len(posts) <= limit, (
+        f"Returned {len(posts)} posts, expected <=  {limit}"
+    )
+
+    # Verify at least one /p/ and one /reel/ URL
+    urls = [p["post_url"] for p in posts]
+    assert any("/p/" in u for u in urls), "No /p/ URLs found"
+    assert any("/reel/" in u for u in urls), "No /reel/ URLs found"
+
+    # Verify at least one post has non-zero likes
+    assert any(p["likes"] > 0 for p in posts), "No real likes found"
+
+    # Verify recency (all posts should be <=10 days old when created_at > 0)
+    for p in posts:
+        if p.get("created_at", 0) > 0:
+            age_seconds = now - p["created_at"]
+            assert age_seconds <= 10 * 86400, (
+                f"Old post found: {age_seconds} seconds old"
+            )
+
+    # Verify deduplication by post_url
+    post_urls = set()
+    for p in posts:
+        assert p["post_url"] not in post_urls, (
+            f"Duplicate post_url found: {p['post_url']}"
+        )
+        post_urls.add(p["post_url"])
+
+    # Verify sorting by likes desc
+    for i in range(len(posts) - 1):
+        curr_likes = posts[i]["likes"]
+        next_likes = posts[i + 1]["likes"]
+        assert curr_likes >= next_likes, (
+            f"Posts not sorted by likes desc at index {i}: {curr_likes} < {next_likes}"
+        )
+    # Dedup by post_url
+    assert len(urls) == len(set(urls)), "Results not deduped by post_url"
+    # Sorted by likes desc
+    likes = [p["likes"] for p in posts]
+    assert likes == sorted(likes, reverse=True), "Results not sorted by likes desc"
 
 
 @pytest.mark.asyncio

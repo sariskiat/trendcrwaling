@@ -7,8 +7,8 @@ AFK
 infra
 
 ## Blocked by
-- Ship Instagram global trending tracer bullet
-- Create LLM hashtag generator module
+- ISSUE-043
+- ISSUE-047
 
 ## Why
 Mode 2 needs query->hashtags expansion and ranking by real engagement, not placeholder likes.

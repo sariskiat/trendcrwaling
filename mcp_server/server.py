@@ -32,8 +32,14 @@ from scrapers.tiktok_tikapi import scrape_hashtag as _scrape_tikapi_hashtag
 from scrapers.tiktok_apify import ApifyTikTokPost, scrape_user as _scrape_apify_user
 from scrapers.tiktok_apify import scrape_trending as _scrape_apify_trending
 from scrapers.tiktok_apify import scrape_hashtag as _scrape_apify_hashtag
-from scrapers.instagram import InstagramPost, scrape_user as _scrape_instagram_user
+from scrapers.instagram import (
+    InstagramPost,
+    scrape_user as _scrape_instagram_user,
+    scrape_hashtag as _scrape_instagram_hashtag,
+)
 from scrapers.facebook import FacebookPost, scrape_page as _scrape_facebook_page
+from scrapers.facebook import scrape_hashtag as _scrape_facebook_hashtag
+from scrapers.facebook import scrape_trending as _scrape_facebook_trending
 from scrapers.hashtag_generator import (
     generate_hashtags,
 )  # IG/FB Mode 2 integration point
@@ -369,6 +375,25 @@ async def instagram_user_posts(username: str, limit: int = 20) -> str:
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def instagram_hashtag_trending(query: str, limit: int = 10) -> str:
+    """
+    Scrape Instagram posts for a query using hashtag generator and Mode 2 logic.
+    Returns up to `limit` posts with keys post_url, url, caption, likes, created_at.
+    Deduped by post_url, sorted by likes desc, recency filtered (<=10 days), includes /p/ and /reel/ URLs.
+    """
+    _require_env(IG_COOKIES_FILE, "scrape Instagram hashtag trending posts")
+    _validate_limit(limit)
+    posts = await _scrape_instagram_hashtag(query, limit=limit, max_age_days=10)
+    # Dedup and sort (should already be deduped, but sort here for contract)
+    deduped = {p["post_url"]: p for p in posts if p.get("post_url")}
+    sorted_posts = sorted(
+        deduped.values(),
+        key=lambda p: (-p["likes"], -p["created_at"] if p["created_at"] > 0 else 0),
+    )
+    return json.dumps(sorted_posts[:limit], ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
 async def facebook_page_posts(page_name: str, limit: int = 20) -> str:
     """Scrape Facebook posts from a public page."""
     _validate_handle(page_name, "page_name")
@@ -378,6 +403,42 @@ async def facebook_page_posts(page_name: str, limit: int = 20) -> str:
 
     posts: list[FacebookPost] = await _scrape_facebook_page(page_name, limit)
     return json.dumps(posts, ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def facebook_hashtag_trending(query: str, limit: int = 10) -> str:
+    """
+    Scrape Facebook posts for a query using hashtag generator (Mode 2).
+    Returns up to `limit` posts with keys post_url, text, image_url, likes, time, created_at.
+    Deduped by post_url, sorted by likes desc then recency, recency filtered (<=10 days).
+    """
+    _require_env(FB_COOKIES_FILE, "scrape Facebook hashtag trending posts")
+    _validate_limit(limit)
+    posts = await _scrape_facebook_hashtag(query, limit=limit, max_age_days=10)
+    deduped = {p["post_url"]: p for p in posts if p.get("post_url")}
+    sorted_posts = sorted(
+        deduped.values(),
+        key=lambda p: (-p["likes"], -p["created_at"] if p["created_at"] > 0 else 0),
+    )
+    return json.dumps(sorted_posts[:limit], ensure_ascii=False, indent=2)
+
+
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+async def facebook_global_trending(limit: int = 10) -> str:
+    """
+    Scrape globally trending Facebook posts (from #trending and #viral, Mode 3).
+    Returns up to `limit` posts with keys post_url, text, image_url, likes, time, created_at.
+    Deduped by post_url, sorted by likes desc then recency, recency filtered (<=10 days).
+    """
+    _require_env(FB_COOKIES_FILE, "scrape Facebook global trending posts")
+    _validate_limit(limit)
+    posts = await _scrape_facebook_trending(limit=limit, max_age_days=10)
+    deduped = {p["post_url"]: p for p in posts if p.get("post_url")}
+    sorted_posts = sorted(
+        deduped.values(),
+        key=lambda p: (-p["likes"], -p["created_at"] if p["created_at"] > 0 else 0),
+    )
+    return json.dumps(sorted_posts[:limit], ensure_ascii=False, indent=2)
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))

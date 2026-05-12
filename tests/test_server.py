@@ -127,6 +127,100 @@ async def test_instagram_global_trending_tool():
     ), "Tool not registered in MCP"
 
 
+@pytest.mark.asyncio
+async def test_instagram_hashtag_trending_success() -> None:
+    """
+    Integration: MCP tool instagram_hashtag_trending(query, limit) returns deduped, recent, sorted posts.
+    - Returns JSON string with deduped posts by post_url
+    - Includes /p/ and /reel/ URLs
+    - Sorted by likes desc
+    - All posts: now - created_at <= 864000 when created_at > 0
+    """
+    from mcp_server.server import instagram_hashtag_trending
+    from scrapers.instagram import InstagramPost
+
+    query = "cats"
+    limit = 7
+    now = int(time.time())
+    mock_posts: list[InstagramPost] = [
+        InstagramPost(
+            url="https://cdn.instagram.com/img1.jpg",
+            caption="Recent /p/ post",
+            likes=500,
+            post_url="https://www.instagram.com/p/POST001/",
+            created_at=now - 86400,
+        ),
+        InstagramPost(
+            url="https://cdn.instagram.com/img2.jpg",
+            caption="Recent /reel/ post",
+            likes=300,
+            post_url="https://www.instagram.com/reel/REEL001/",
+            created_at=now - 172800,
+        ),
+    ]
+    with (
+        patch(
+            "mcp_server.server._scrape_instagram_hashtag",
+            new_callable=AsyncMock,
+            return_value=mock_posts,
+        ),
+        patch.dict("os.environ", {"IG_COOKIES_FILE": "/path/to/cookies.txt"}),
+    ):
+        result = await instagram_hashtag_trending(query, limit)
+
+    assert isinstance(result, str), "Tool should return a JSON string"
+    posts = json.loads(result)
+    assert isinstance(posts, list)
+    assert len(posts) <= limit
+    post_urls = set()
+    last_likes = None
+    last_created = None
+    for post in posts:
+        assert set(post.keys()) >= {"post_url", "url", "caption", "likes", "created_at"}
+        assert post["post_url"] not in post_urls, "Duplicate post_url found"
+        post_urls.add(post["post_url"])
+        if post["created_at"] > 0:
+            assert now - post["created_at"] <= 864000, (
+                f"Old post found: {post['created_at']}"
+            )
+        if last_likes is not None:
+            assert post["likes"] <= last_likes or (
+                post["likes"] == last_likes and post["created_at"] <= last_created
+            ), "Posts not sorted by likes desc, fallback created_at desc"
+        last_likes = post["likes"]
+        last_created = post["created_at"]
+    # Verify /p/ and /reel/ URLs are present
+    urls = [p["post_url"] for p in posts]
+    assert any("/p/" in u for u in urls), "No /p/ URLs found"
+    assert any("/reel/" in u for u in urls), "No /reel/ URLs found"
+
+
+@pytest.mark.asyncio
+async def test_instagram_hashtag_trending_missing_cookies() -> None:
+    """instagram_hashtag_trending raises ConfigurationError with actionable message when IG_COOKIES_FILE not set."""
+    from mcp_server.server import instagram_hashtag_trending, ConfigurationError
+
+    with patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(
+            ConfigurationError, match="IG_COOKIES_FILE environment variable is not set"
+        ):
+            await instagram_hashtag_trending("cats", limit=10)
+
+
+@pytest.mark.asyncio
+async def test_instagram_hashtag_trending_invalid_limit() -> None:
+    """instagram_hashtag_trending raises ValidationError for limit=0 or limit>100."""
+    from mcp_server.server import instagram_hashtag_trending, ValidationError
+
+    with patch.dict("os.environ", {"IG_COOKIES_FILE": "/path/to/cookies.txt"}):
+        # Test limit=0
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await instagram_hashtag_trending("cats", limit=0)
+        # Test limit=999
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await instagram_hashtag_trending("cats", limit=999)
+
+
 async def test_tiktok_user_posts_invalid_limit_zero() -> None:
     """tiktok_user_posts raises ValidationError for limit < 1."""
     from mcp_server.server import tiktok_user_posts, ValidationError
@@ -954,7 +1048,7 @@ def test_analysis_error_is_value_error() -> None:
 
 # Smoke test for tool registration
 def test_all_tools_registered() -> None:
-    """All 21 MCP tools are registered on the mcp object."""
+    """All 18 MCP tools are registered on the mcp object."""
     from mcp_server.server import mcp
 
     expected_tools: set[str] = {
@@ -972,7 +1066,11 @@ def test_all_tools_registered() -> None:
         "tiktok_hashtag_apify",
         "instagram_user_posts",
         "instagram_global_trending",
+        "instagram_hashtag_trending",
+        "generate_hashtags_tool",
         "facebook_page_posts",
+        "facebook_hashtag_trending",
+        "facebook_global_trending",
         "analyze_image",
     }
 
@@ -982,6 +1080,140 @@ def test_all_tools_registered() -> None:
         f"Missing tools: {expected_tools - registered_tools}, "
         f"Extra tools: {registered_tools - expected_tools}"
     )
+
+
+# Tests for facebook_hashtag_trending
+async def test_facebook_hashtag_trending_success() -> None:
+    """facebook_hashtag_trending returns JSON string with post data on success."""
+    from mcp_server.server import facebook_hashtag_trending
+    from scrapers.facebook import FacebookPost
+
+    now = int(time.time())
+    mock_posts: list[FacebookPost] = [
+        FacebookPost(
+            text="Summer vibes post",
+            likes=800,
+            time="May 7, 2026 at 3:00 PM",
+            post_url="https://www.facebook.com/posts/summer001",
+            image_url="https://scontent.example.com/img1.jpg",
+            created_at=now - 86400,
+        ),
+        FacebookPost(
+            text="Beach vibes post",
+            likes=400,
+            time="May 6, 2026 at 12:00 PM",
+            post_url="https://www.facebook.com/posts/beach001",
+            image_url="https://scontent.example.com/img2.jpg",
+            created_at=now - 172800,
+        ),
+    ]
+    with (
+        patch(
+            "mcp_server.server._scrape_facebook_hashtag",
+            new_callable=AsyncMock,
+            return_value=mock_posts,
+        ),
+        patch.dict("os.environ", {"FB_COOKIES_FILE": "/path/to/cookies.txt"}),
+    ):
+        result = await facebook_hashtag_trending("summer vibes", limit=10)
+
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert isinstance(parsed, list)
+    assert len(parsed) <= 10
+    assert all("post_url" in p for p in parsed)
+    assert all("created_at" in p for p in parsed)
+    likes = [p["likes"] for p in parsed]
+    assert likes == sorted(likes, reverse=True)
+
+
+async def test_facebook_hashtag_trending_missing_cookies() -> None:
+    """facebook_hashtag_trending raises ConfigurationError when FB_COOKIES_FILE not set."""
+    from mcp_server.server import facebook_hashtag_trending, ConfigurationError
+
+    with patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(
+            ConfigurationError, match="FB_COOKIES_FILE environment variable is not set"
+        ):
+            await facebook_hashtag_trending("summer", limit=10)
+
+
+async def test_facebook_hashtag_trending_invalid_limit() -> None:
+    """facebook_hashtag_trending raises ValidationError for out-of-range limit."""
+    from mcp_server.server import facebook_hashtag_trending, ValidationError
+
+    with patch.dict("os.environ", {"FB_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await facebook_hashtag_trending("summer", limit=0)
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await facebook_hashtag_trending("summer", limit=999)
+
+
+# Tests for facebook_global_trending
+async def test_facebook_global_trending_success() -> None:
+    """facebook_global_trending returns deduped, sorted posts as JSON string."""
+    from mcp_server.server import facebook_global_trending
+    from scrapers.facebook import FacebookPost
+
+    now = int(time.time())
+    mock_posts: list[FacebookPost] = [
+        FacebookPost(
+            text="Viral post",
+            likes=5000,
+            time="May 7, 2026 at 3:00 PM",
+            post_url="https://www.facebook.com/posts/viral001",
+            image_url="https://scontent.example.com/viral.jpg",
+            created_at=now - 86400,
+        ),
+        FacebookPost(
+            text="Trending post",
+            likes=3000,
+            time="May 6, 2026 at 12:00 PM",
+            post_url="https://www.facebook.com/posts/trending001",
+            image_url="https://scontent.example.com/trending.jpg",
+            created_at=now - 172800,
+        ),
+    ]
+    with (
+        patch(
+            "mcp_server.server._scrape_facebook_trending",
+            new_callable=AsyncMock,
+            return_value=mock_posts,
+        ),
+        patch.dict("os.environ", {"FB_COOKIES_FILE": "/path/to/cookies.txt"}),
+    ):
+        result = await facebook_global_trending(limit=10)
+
+    assert isinstance(result, str)
+    parsed = json.loads(result)
+    assert isinstance(parsed, list)
+    assert len(parsed) <= 10
+    post_urls = [p["post_url"] for p in parsed]
+    assert len(post_urls) == len(set(post_urls)), "Duplicate post_url found"
+    likes = [p["likes"] for p in parsed]
+    assert likes == sorted(likes, reverse=True)
+
+
+async def test_facebook_global_trending_missing_cookies() -> None:
+    """facebook_global_trending raises ConfigurationError when FB_COOKIES_FILE not set."""
+    from mcp_server.server import facebook_global_trending, ConfigurationError
+
+    with patch.dict("os.environ", {}, clear=True):
+        with pytest.raises(
+            ConfigurationError, match="FB_COOKIES_FILE environment variable is not set"
+        ):
+            await facebook_global_trending(limit=10)
+
+
+async def test_facebook_global_trending_invalid_limit() -> None:
+    """facebook_global_trending raises ValidationError for out-of-range limit."""
+    from mcp_server.server import facebook_global_trending, ValidationError
+
+    with patch.dict("os.environ", {"FB_COOKIES_FILE": "/path/to/cookies.txt"}):
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await facebook_global_trending(limit=0)
+        with pytest.raises(ValidationError, match="limit must be between 1 and 100"):
+            await facebook_global_trending(limit=999)
 
 
 def test_analyze_image_docstring_lists_correct_exceptions() -> None:

@@ -7,9 +7,9 @@ AFK
 infra
 
 ## Blocked by
-- Add Instagram query hashtag trending with real likes
-- Implement Facebook three modes with 10-day recency
-- Enforce TikTok API three-mode recency contract end-to-end
+- ISSUE-044
+- ISSUE-045
+- ISSUE-046
 
 ## Why
 After per-platform logic is implemented, MCP must present a coherent, discoverable cross-platform API surface.

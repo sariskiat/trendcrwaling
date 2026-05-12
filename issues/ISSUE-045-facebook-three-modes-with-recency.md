@@ -7,8 +7,8 @@ AFK
 infra
 
 ## Blocked by
-- Ship Instagram global trending tracer bullet
-- Create LLM hashtag generator module
+- ISSUE-043
+- ISSUE-047
 
 ## Why
 Facebook currently lacks a complete, tested three-mode surface with strict recency guarantees.

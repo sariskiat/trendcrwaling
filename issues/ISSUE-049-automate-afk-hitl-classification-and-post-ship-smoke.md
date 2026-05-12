@@ -7,7 +7,7 @@ AFK
 infra
 
 ## Blocked by
-- Expose complete Instagram/Facebook mode tools in MCP
+- ISSUE-048
 
 ## Why
 The supervisor loop must avoid HITL tasks and immediately create blocker issues when real calls fail.

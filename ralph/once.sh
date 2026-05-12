@@ -6,3 +6,4 @@ prompt=$(cat ralph/prompt.md)
 
 claude --permission-mode acceptEdits \
   "Previous commits: $commits Issues: $issues $prompt"
+  
